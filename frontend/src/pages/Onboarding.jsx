@@ -52,7 +52,7 @@ const Onboarding = () => {
       const profile = await userAPI.getProfile();
       login(profile.data);
       navigate("/dashboard");
-    } catch (err) {
+    } catch {
       enqueueSnackbar("Onboarding failed", { variant: "error" });
     }
   };
