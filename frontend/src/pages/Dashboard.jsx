@@ -14,7 +14,6 @@ import {
   Edit3,
   ChevronDown,
 } from "lucide-react";
-import { motion } from "framer-motion";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -164,14 +163,9 @@ const Dashboard = () => {
       {/* 🔹 Main Content */}
       <main className="max-w-6xl mx-auto p-6 space-y-8">
         {/* Welcome Section */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="text-2xl font-bold text-gray-800 dark:text-white"
-        >
+        <div className="text-2xl font-bold text-gray-800 dark:text-white">
           Welcome back, {user?.username || "Guest"} 👋
-        </motion.div>
+        </div>
 
         {/* Top Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

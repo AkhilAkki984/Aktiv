@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { leaderboardAPI } from "../utils/api";
 import { useSnackbar } from "notistack";
-import { motion } from "framer-motion";
+// import { motion } from "framer-motion"; // Removed unused import
 import { Trophy, User } from "lucide-react";
 
 const Leaderboard = () => {
