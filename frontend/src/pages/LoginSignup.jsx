@@ -1,7 +1,7 @@
 import React, { useContext, useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useForm } from "react-hook-form";
-import { motion } from "framer-motion";
+// import { motion } from "framer-motion"; // Removed unused import
 import { AuthContext } from "../context/AuthContext.jsx";
 import { authAPI } from "../utils/api";
 import { useSnackbar } from "notistack";

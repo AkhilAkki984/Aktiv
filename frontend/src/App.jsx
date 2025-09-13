@@ -1,6 +1,6 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useContext } from "react";
-import { AuthContext, AuthProvider } from "./context/AuthContext";
+import { AuthContext } from "./context/AuthContext";
 import Dashboard from "./pages/Dashboard";
 import Chat from "./pages/Chat";
 import Onboarding from "./pages/Onboarding";
@@ -10,7 +10,7 @@ import Feed from "./pages/Feed";
 import Partners from "./pages/Partners";
 import Leaderboard from "./pages/Leaderboard";
 import Landing from "./pages/Landing";
-import LoginSignup from "./pages/Loginsignup";
+import LoginSignup from "./pages/LoginSignup";
 
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useContext(AuthContext);
@@ -95,9 +95,5 @@ function AppRoutes() {
 }
 
 export default function App() {
-  return (
-    <AuthProvider>
-      <AppRoutes />
-    </AuthProvider>
-  );
+  return <AppRoutes />;
 }

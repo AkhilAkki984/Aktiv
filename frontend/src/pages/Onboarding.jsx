@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { userAPI } from "../utils/api";
 import { AuthContext } from "../context/AuthContext.jsx";
 import { useSnackbar } from "notistack";
-import { motion } from "framer-motion";
+// import { motion } from "framer-motion"; // Removed unused import
 import { ArrowRight, ArrowLeft, CheckCircle } from "lucide-react";
 
 const avatars = [
@@ -52,7 +52,7 @@ const Onboarding = () => {
       const profile = await userAPI.getProfile();
       login(profile.data);
       navigate("/dashboard");
-    } catch (err) {
+    } catch {
       enqueueSnackbar("Onboarding failed", { variant: "error" });
     }
   };

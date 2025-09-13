@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { feedAPI } from "../utils/api";
 import { useSnackbar } from "notistack";
-import { motion, AnimatePresence } from "framer-motion";
 import { Send, User, Heart, MessageCircle } from "lucide-react";
 
 const Feed = () => {
@@ -11,16 +10,16 @@ const Feed = () => {
 
   useEffect(() => {
     loadFeed();
-  }, []);
+  }, [loadFeed]);
 
-  const loadFeed = () => {
+  const loadFeed = React.useCallback(() => {
     feedAPI
       .getFeed()
       .then((res) => setPosts(res.data))
       .catch(() =>
         enqueueSnackbar("Failed to fetch feed", { variant: "error" })
       );
-  };
+  }, [enqueueSnackbar]);
 
   const handlePost = async () => {
     if (!newPost.trim()) return;
@@ -73,19 +72,14 @@ const Feed = () => {
 
         {/* Feed Posts */}
         <div className="space-y-6">
-          <AnimatePresence>
             {posts.length === 0 ? (
               <p className="p-6 text-gray-500 dark:text-gray-400 text-center">
                 No posts yet. Be the first to share something! 🎉
               </p>
             ) : (
               posts.map((post) => (
-                <motion.div
+                <div
                   key={post._id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.2 }}
                   className="bg-white dark:bg-gray-800 rounded-lg shadow p-5"
                 >
                   {/* User info */}
@@ -174,10 +168,9 @@ const Feed = () => {
                       {post.comments?.length || 0}
                     </div>
                   </div>
-                </motion.div>
+                </div>
               ))
             )}
-          </AnimatePresence>
         </div>
       </div>
     </div>
