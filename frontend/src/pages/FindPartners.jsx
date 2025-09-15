@@ -39,6 +39,7 @@ const FindPartners = () => {
     activeCount: 0,
     totalCount: 0
   });
+  const [countsLoading, setCountsLoading] = useState(true);
   const [pagination, setPagination] = useState({
     currentPage: 1,
     totalPages: 1,
@@ -55,17 +56,38 @@ const FindPartners = () => {
   // Fetch partner counts
   const fetchCounts = async () => {
     try {
+      console.log('Fetching partner counts...');
+      setCountsLoading(true);
       const response = await partnersAPI.getPartnerCounts();
+      console.log('Partner counts response:', response.data);
+      console.log('Setting counts to:', response.data);
       setCounts(response.data);
     } catch (err) {
       console.error('Failed to fetch partner counts:', err);
+      console.log('Setting default counts due to error');
+      // Set default counts on error
+      setCounts({
+        availableCount: 0,
+        pendingCount: 0,
+        activeCount: 0,
+        totalCount: 0
+      });
+    } finally {
+      setCountsLoading(false);
+      console.log('Counts loading set to false');
     }
   };
 
   // Fetch counts on component mount
   useEffect(() => {
+    console.log('Component mounted, fetching counts...');
     fetchCounts();
   }, []);
+
+  // Debug: Log counts changes
+  useEffect(() => {
+    console.log('Counts state changed:', counts);
+  }, [counts]);
 
   // Fetch partners data based on active tab
   useEffect(() => {
@@ -244,7 +266,14 @@ const FindPartners = () => {
         partner.connectionStatus?.connectionId !== connectionId
       ));
       
-      // Refresh counts and update pagination
+      // Update counts optimistically
+      setCounts(prev => ({
+        ...prev,
+        pendingCount: Math.max(0, (prev.pendingCount || 0) - 1),
+        activeCount: (prev.activeCount || 0) + 1
+      }));
+      
+      // Refresh counts from backend to ensure accuracy
       await fetchCounts();
       setPagination(prev => ({ ...prev, totalCount: prev.totalCount - 1 }));
     } catch (err) {
@@ -263,7 +292,13 @@ const FindPartners = () => {
         partner.connectionStatus?.connectionId !== connectionId
       ));
       
-      // Refresh counts and update pagination
+      // Update counts optimistically
+      setCounts(prev => ({
+        ...prev,
+        pendingCount: Math.max(0, (prev.pendingCount || 0) - 1)
+      }));
+      
+      // Refresh counts from backend to ensure accuracy
       await fetchCounts();
       setPagination(prev => ({ ...prev, totalCount: prev.totalCount - 1 }));
     } catch (err) {
@@ -321,9 +356,9 @@ const FindPartners = () => {
             className="relative p-2 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition cursor-pointer"
           >
             <UserPlus className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-            {counts.pendingCount > 0 && (
+            {(counts.pendingCount || 0) > 0 && (
               <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">
-                {counts.pendingCount}
+                {counts.pendingCount || 0}
               </span>
             )}
           </button>
@@ -409,7 +444,7 @@ const FindPartners = () => {
                   : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
               }`}
             >
-              Active Partners ({counts.activeCount})
+              Active Partners ({counts.activeCount || 0})
             </button>
             <button
               onClick={() => setActiveTab("pending")}
@@ -419,7 +454,7 @@ const FindPartners = () => {
                   : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
               }`}
             >
-              Pending Requests ({counts.pendingCount})
+              Pending Requests ({counts.pendingCount || 0})
             </button>
           </div>
         </motion.div>

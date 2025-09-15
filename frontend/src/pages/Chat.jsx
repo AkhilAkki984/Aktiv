@@ -1,156 +1,568 @@
-import { useEffect, useState, useRef } from "react";
-import { chatAPI } from "../utils/api";
+import { useEffect, useState, useRef, useContext } from "react";
+import { useSnackbar } from "notistack";
+import { chatAPI, groupAPI } from "../utils/api";
+import { AuthContext } from "../context/AuthContext";
+import { 
+  Search, 
+  MoreVertical, 
+  Pin, 
+  Volume2, 
+  VolumeX, 
+  Paperclip, 
+  Send, 
+  Image, 
+  Video, 
+  FileText,
+  Users,
+  Plus,
+  X,
+  Check,
+  CheckCheck,
+  Clock
+} from "lucide-react";
 
 const Chat = () => {
-  const [contacts, setContacts] = useState([]);
-  const [selected, setSelected] = useState(null);
+  const { user } = useContext(AuthContext);
+  const { enqueueSnackbar } = useSnackbar();
+  
+  // State management
+  const [conversations, setConversations] = useState([]);
+  const [selectedChat, setSelectedChat] = useState(null);
   const [messages, setMessages] = useState([]);
-  const [text, setText] = useState("");
+  const [messageText, setMessageText] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [availableUsers, setAvailableUsers] = useState([]);
+  const [selectedUsers, setSelectedUsers] = useState([]);
+  const [groupName, setGroupName] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [sendingMessage, setSendingMessage] = useState(false);
+  
+  // Refs
   const scrollRef = useRef();
+  const fileInputRef = useRef();
+  const messagesEndRef = useRef();
 
+  // Fetch conversations on component mount
   useEffect(() => {
-    const fetchContacts = async () => {
-      try {
-        const res = await chatAPI.getContacts();
-        setContacts(res.data);
-      } catch (err) {
-        console.error("Error fetching contacts:", err);
-      }
-    };
-    fetchContacts();
+    fetchConversations();
   }, []);
 
+  // Fetch messages when chat is selected
   useEffect(() => {
-    const fetchMessages = async () => {
-      if (!selected) return;
-      try {
-        const res = await chatAPI.getMessages(selected._id);
-        setMessages(res.data);
-      } catch (err) {
-        console.error("Error fetching messages:", err);
-      }
-    };
-    fetchMessages();
-  }, [selected]);
+    if (selectedChat) {
+      fetchMessages(selectedChat._id);
+    }
+  }, [selectedChat]);
 
+  // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    scrollRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const sendMessage = async () => {
-    if (!text.trim() || !selected) return;
+  // Fetch conversations
+  const fetchConversations = async () => {
     try {
-      const res = await chatAPI.sendMessage(selected._id, { text });
-      setMessages([...messages, res.data]);
-      setText("");
+      setLoading(true);
+      const response = await chatAPI.getConversations();
+      setConversations(response.data);
+    } catch (err) {
+      console.error("Error fetching conversations:", err);
+      enqueueSnackbar("Failed to load conversations", { variant: "error" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch messages for a specific chat
+  const fetchMessages = async (chatId) => {
+    try {
+      const response = await chatAPI.getChatMessages(chatId);
+      setMessages(response.data);
+      
+      // Mark messages as read
+      if (response.data.length > 0) {
+        await chatAPI.markAsRead(chatId, { messageId: response.data[response.data.length - 1]._id });
+      }
+    } catch (err) {
+      console.error("Error fetching messages:", err);
+      enqueueSnackbar("Failed to load messages", { variant: "error" });
+    }
+  };
+
+  // Send message
+  const sendMessage = async (content, mediaFile = null) => {
+    if (!content.trim() && !mediaFile) return;
+    if (!selectedChat) return;
+
+    try {
+      setSendingMessage(true);
+      
+      const formData = new FormData();
+      formData.append("content", content);
+      if (mediaFile) {
+        formData.append("media", mediaFile);
+      }
+
+      const response = await chatAPI.sendChatMessage(selectedChat._id, formData);
+      setMessages(prev => [...prev, response.data]);
+      setMessageText("");
+      
+      // Refresh conversations to update last message
+      await fetchConversations();
     } catch (err) {
       console.error("Error sending message:", err);
+      enqueueSnackbar("Failed to send message", { variant: "error" });
+    } finally {
+      setSendingMessage(false);
+    }
+  };
+
+  // Handle text message send
+  const handleSendMessage = () => {
+    if (messageText.trim()) {
+      sendMessage(messageText);
+    }
+  };
+
+  // Handle media upload
+  const handleMediaUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      sendMessage("", file);
+    }
+  };
+
+  // Toggle chat pin
+  const togglePin = async (chatId, isPinned) => {
+    try {
+      await chatAPI.updateChatSettings(chatId, { isPinned: !isPinned });
+      await fetchConversations();
+    } catch (err) {
+      console.error("Error toggling pin:", err);
+      enqueueSnackbar("Failed to update chat settings", { variant: "error" });
+    }
+  };
+
+  // Toggle chat mute
+  const toggleMute = async (chatId, isMuted) => {
+    try {
+      await chatAPI.updateChatSettings(chatId, { isMuted: !isMuted });
+      await fetchConversations();
+    } catch (err) {
+      console.error("Error toggling mute:", err);
+      enqueueSnackbar("Failed to update chat settings", { variant: "error" });
+    }
+  };
+
+  // Search conversations
+  const searchConversations = async (query) => {
+    if (!query.trim()) {
+      await fetchConversations();
+      return;
+    }
+    
+    try {
+      const response = await chatAPI.searchConversations(query);
+      setConversations(response.data);
+    } catch (err) {
+      console.error("Error searching conversations:", err);
+    }
+  };
+
+  // Create group
+  const createGroup = async () => {
+    if (!groupName.trim() || selectedUsers.length === 0) {
+      enqueueSnackbar("Please enter group name and select members", { variant: "warning" });
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append("name", groupName);
+      formData.append("memberIds", JSON.stringify(selectedUsers.map(u => u._id)));
+
+      const response = await groupAPI.createGroup(formData);
+      enqueueSnackbar("Group created successfully!", { variant: "success" });
+      
+      setShowCreateGroup(false);
+      setGroupName("");
+      setSelectedUsers([]);
+      await fetchConversations();
+    } catch (err) {
+      console.error("Error creating group:", err);
+      enqueueSnackbar("Failed to create group", { variant: "error" });
+    }
+  };
+
+  // Fetch available users for group creation
+  const fetchAvailableUsers = async () => {
+    try {
+      const response = await groupAPI.getAvailableUsers();
+      setAvailableUsers(response.data);
+    } catch (err) {
+      console.error("Error fetching available users:", err);
+    }
+  };
+
+  // Format timestamp
+  const formatTime = (timestamp) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffInHours = (now - date) / (1000 * 60 * 60);
+    
+    if (diffInHours < 24) {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } else if (diffInHours < 168) { // 7 days
+      return date.toLocaleDateString([], { weekday: 'short' });
+    } else {
+      return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    }
+  };
+
+  // Get message status icon
+  const getMessageStatusIcon = (message) => {
+    if (message.sender._id !== user.id) return null;
+    
+    switch (message.status) {
+      case 'sent':
+        return <Clock size={12} className="text-gray-400" />;
+      case 'delivered':
+        return <Check size={12} className="text-gray-400" />;
+      case 'read':
+        return <CheckCheck size={12} className="text-blue-500" />;
+      default:
+        return <Clock size={12} className="text-gray-400" />;
     }
   };
 
   return (
-    <div className="flex h-screen bg-gray-900 text-gray-100">
-      {/* Contacts */}
-      <div className="w-1/4 border-r border-gray-700 p-4 bg-gray-800 flex flex-col">
-        <h2 className="font-bold mb-4 text-lg">Messages</h2>
-        <ul className="flex-1 overflow-y-auto space-y-2">
-          {contacts.map((c) => (
-            <li
-              key={c._id}
-              onClick={() => setSelected(c)}
-              className={`flex items-center gap-3 p-2 rounded cursor-pointer ${
-                selected?._id === c._id
-                  ? "bg-blue-600"
-                  : "hover:bg-gray-700"
-              }`}
+    <div className="flex h-screen bg-white dark:bg-gray-900">
+      {/* Chat Sidebar */}
+      <div className="w-1/3 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex flex-col">
+        {/* Header */}
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white">Messages</h1>
+            <button
+              onClick={() => {
+                setShowCreateGroup(true);
+                fetchAvailableUsers();
+              }}
+              className="p-2 rounded-full bg-blue-600 text-white hover:bg-blue-700 transition-colors"
             >
-              <img
-                src={c.profilePic || `https://placehold.co/40x40`}
-                alt={c.username}
-                className="w-10 h-10 rounded-full border border-gray-700"
-              />
-              <div className="flex-1">
-                <p className="font-medium">{c.username}</p>
-                <span className="text-xs text-green-400">
-                  {c.active ? "Active now" : "Offline"}
-                </span>
+              <Plus size={20} />
+            </button>
+          </div>
+          
+          {/* Search Bar */}
+          <div className="relative">
+            <Search size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search conversations..."
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                searchConversations(e.target.value);
+              }}
+              className="w-full pl-10 pr-4 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+
+        {/* Conversations List */}
+        <div className="flex-1 overflow-y-auto">
+          {loading ? (
+            <div className="p-4 text-center text-gray-500">Loading conversations...</div>
+          ) : conversations.length === 0 ? (
+            <div className="p-4 text-center text-gray-500">No conversations found</div>
+          ) : (
+            conversations.map((conversation) => (
+              <div
+                key={conversation._id}
+                onClick={() => setSelectedChat(conversation)}
+                className={`flex items-center gap-3 p-4 border-b border-gray-100 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 ${
+                  selectedChat?._id === conversation._id ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                }`}
+              >
+                {/* Avatar */}
+                <div className="relative">
+                  <img
+                    src={conversation.avatar || `https://ui-avatars.com/api/?name=${conversation.name}&background=random`}
+                    alt={conversation.name}
+                    className="w-12 h-12 rounded-full object-cover"
+                  />
+                  {conversation.type === 'group' && (
+                    <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-blue-600 rounded-full flex items-center justify-center">
+                      <Users size={10} className="text-white" />
+                    </div>
+                  )}
+                </div>
+
+                {/* Conversation Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold text-gray-900 dark:text-white truncate">
+                      {conversation.name}
+                    </h3>
+                    <div className="flex items-center gap-1">
+                      {conversation.isPinned && <Pin size={14} className="text-gray-400" />}
+                      {conversation.isMuted && <VolumeX size={14} className="text-gray-400" />}
+                      {conversation.unreadCount > 0 && (
+                        <span className="bg-blue-600 text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center">
+                          {conversation.unreadCount}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between mt-1">
+                    <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                      {conversation.lastMessage?.content || (conversation.hasMessages ? 'No messages yet' : 'Start a conversation')}
+                    </p>
+                    <span className="text-xs text-gray-500">
+                      {conversation.lastMessage?.timestamp ? formatTime(conversation.lastMessage.timestamp) : ''}
+                    </span>
+                  </div>
+                </div>
               </div>
-            </li>
-          ))}
-        </ul>
+            ))
+          )}
+        </div>
       </div>
 
       {/* Chat Window */}
-      <div className="flex-1 flex flex-col bg-gray-900">
-        {selected ? (
+      <div className="flex-1 flex flex-col bg-white dark:bg-gray-900">
+        {selectedChat ? (
           <>
-            {/* Header */}
-            <div className="p-4 border-b border-gray-700 flex items-center gap-3">
-              <img
-                src={selected.profilePic || `https://placehold.co/40x40`}
-                alt={selected.username}
-                className="w-10 h-10 rounded-full border border-gray-700"
-              />
-              <div>
-                <p className="font-bold">{selected.username}</p>
-                <span className="text-xs text-green-400">
-                  {selected.active ? "Active now" : "Offline"}
-                </span>
+            {/* Chat Header */}
+            <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <img
+                  src={selectedChat.avatar || `https://ui-avatars.com/api/?name=${selectedChat.name}&background=random`}
+                  alt={selectedChat.name}
+                  className="w-10 h-10 rounded-full object-cover"
+                />
+                <div>
+                  <h2 className="font-semibold text-gray-900 dark:text-white">{selectedChat.name}</h2>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {selectedChat.type === 'group' ? `${selectedChat.participants.length} members` : 'Active now'}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => togglePin(selectedChat._id, selectedChat.isPinned)}
+                  className={`p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                    selectedChat.isPinned ? 'text-blue-600' : 'text-gray-400'
+                  }`}
+                >
+                  <Pin size={20} />
+                </button>
+                <button
+                  onClick={() => toggleMute(selectedChat._id, selectedChat.isMuted)}
+                  className={`p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                    selectedChat.isMuted ? 'text-red-500' : 'text-gray-400'
+                  }`}
+                >
+                  {selectedChat.isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+                </button>
+                <button className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400">
+                  <MoreVertical size={20} />
+                </button>
               </div>
             </div>
 
             {/* Messages */}
-            <div className="flex-1 p-4 overflow-y-auto space-y-3">
-              {messages.map((msg) => (
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {messages.map((message) => (
                 <div
-                  key={msg._id}
-                  className={`flex flex-col max-w-md ${
-                    msg.sender === selected._id
-                      ? "self-start bg-gray-700 text-gray-100"
-                      : "self-end bg-blue-600 text-white ml-auto"
-                  } p-3 rounded-lg`}
+                  key={message._id}
+                  className={`flex ${message.sender._id === user.id ? 'justify-end' : 'justify-start'}`}
                 >
-                  {msg.image && (
-                    <img
-                      src={msg.image}
-                      alt="sent media"
-                      className="rounded-lg mb-1 max-h-64 object-cover"
-                    />
-                  )}
-                  {msg.text && <p>{msg.text}</p>}
-                  <span className="text-xs text-gray-400 mt-1 self-end">
-                    {new Date(msg.createdAt).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </span>
+                  <div
+                    className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl ${
+                      message.sender._id === user.id
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white'
+                    }`}
+                  >
+                    {/* Media Content */}
+                    {message.media && (
+                      <div className="mb-2">
+                        {message.media.type === 'image' && (
+                          <img
+                            src={message.media.url}
+                            alt="Shared image"
+                            className="rounded-lg max-h-64 object-cover w-full"
+                          />
+                        )}
+                        {message.media.type === 'video' && (
+                          <video
+                            src={message.media.url}
+                            controls
+                            className="rounded-lg max-h-64 w-full"
+                          />
+                        )}
+                        {message.media.type === 'audio' && (
+                          <audio src={message.media.url} controls className="w-full" />
+                        )}
+                        {message.media.type === 'document' && (
+                          <div className="flex items-center gap-2 p-2 bg-gray-200 dark:bg-gray-600 rounded">
+                            <FileText size={20} />
+                            <span className="text-sm">{message.media.filename}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Text Content */}
+                    {message.content && <p className="text-sm">{message.content}</p>}
+                    
+                    {/* Message Footer */}
+                    <div className="flex items-center justify-end gap-1 mt-1">
+                      <span className="text-xs opacity-70">
+                        {formatTime(message.createdAt)}
+                      </span>
+                      {getMessageStatusIcon(message)}
+                    </div>
+                  </div>
                 </div>
               ))}
-              <div ref={scrollRef}></div>
+              <div ref={messagesEndRef} />
             </div>
 
-            {/* Input */}
-            <div className="p-4 border-t border-gray-700 flex gap-2">
-              <input
-                className="flex-1 rounded-lg p-2 bg-gray-800 border border-gray-700 text-white placeholder-gray-400 focus:outline-none"
-                placeholder="Type a message..."
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-              />
-              <button
-                onClick={sendMessage}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
-              >
-                Send
-              </button>
+            {/* Message Input */}
+            <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400"
+                >
+                  <Paperclip size={20} />
+                </button>
+                
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleMediaUpload}
+                  accept="image/*,video/*,audio/*,.pdf,.doc,.docx"
+                  className="hidden"
+                />
+                
+                <input
+                  type="text"
+                  placeholder="Type a message..."
+                  value={messageText}
+                  onChange={(e) => setMessageText(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                  className="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-full text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                
+                <button
+                  onClick={handleSendMessage}
+                  disabled={!messageText.trim() || sendingMessage}
+                  className="p-2 rounded-full bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Send size={20} />
+                </button>
+              </div>
             </div>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center text-gray-500">
-            Select a contact to start chatting
+          <div className="flex-1 flex items-center justify-center text-gray-500 dark:text-gray-400">
+            <div className="text-center">
+              <Users size={48} className="mx-auto mb-4 text-gray-300" />
+              <h3 className="text-lg font-medium mb-2">Select a conversation</h3>
+              <p>Choose a conversation from the sidebar to start messaging</p>
+            </div>
           </div>
         )}
       </div>
+
+      {/* Create Group Modal */}
+      {showCreateGroup && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Create Group</h2>
+              <button
+                onClick={() => setShowCreateGroup(false)}
+                className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                <X size={20} className="text-gray-400" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Group Name
+                </label>
+                <input
+                  type="text"
+                  value={groupName}
+                  onChange={(e) => setGroupName(e.target.value)}
+                  placeholder="Enter group name..."
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Add Members
+                </label>
+                <div className="max-h-40 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-lg">
+                  {availableUsers.map((user) => (
+                    <div
+                      key={user._id}
+                      onClick={() => {
+                        if (selectedUsers.find(u => u._id === user._id)) {
+                          setSelectedUsers(selectedUsers.filter(u => u._id !== user._id));
+                        } else {
+                          setSelectedUsers([...selectedUsers, user]);
+                        }
+                      }}
+                      className={`flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 ${
+                        selectedUsers.find(u => u._id === user._id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                      }`}
+                    >
+                      <img
+                        src={user.avatar || `https://ui-avatars.com/api/?name=${user.username}&background=random`}
+                        alt={user.username}
+                        className="w-8 h-8 rounded-full object-cover"
+                      />
+                      <span className="text-sm text-gray-900 dark:text-white">
+                        {user.getFullName?.() || user.username}
+                      </span>
+                      {selectedUsers.find(u => u._id === user._id) && (
+                        <Check size={16} className="text-blue-600 ml-auto" />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => setShowCreateGroup(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={createGroup}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Create Group
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

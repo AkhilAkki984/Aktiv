@@ -49,9 +49,30 @@ export const partnerAPI = {
 
 // ✅ Chat APIs
 export const chatAPI = {
-  getContacts: () => api.get("/chat/contacts"), // ✅ FIXED
+  // Legacy endpoints (for backward compatibility)
+  getContacts: () => api.get("/chat/contacts"),
   getMessages: (partnerId) => api.get(`/chat/${partnerId}`),
   sendMessage: (partnerId, data) => api.post(`/chat/${partnerId}`, data),
+  
+  // Enhanced chat endpoints
+  getConversations: () => api.get("/chat/conversations"),
+  getChatMessages: (chatId, params) => api.get(`/chat/messages/${chatId}`, { params }),
+  sendChatMessage: (chatId, data) => api.post(`/chat/messages/${chatId}`, data),
+  updateChatSettings: (chatId, data) => api.put(`/chat/settings/${chatId}`, data),
+  markAsRead: (chatId, data) => api.put(`/chat/read/${chatId}`, data),
+  searchConversations: (query) => api.get("/chat/search", { params: { q: query } }),
+};
+
+// ✅ Group APIs
+export const groupAPI = {
+  createGroup: (data) => api.post("/groups", data),
+  getGroups: () => api.get("/groups"),
+  getGroup: (groupId) => api.get(`/groups/${groupId}`),
+  updateGroup: (groupId, data) => api.put(`/groups/${groupId}`, data),
+  addMembers: (groupId, data) => api.post(`/groups/${groupId}/members`, data),
+  removeMember: (groupId, memberId) => api.delete(`/groups/${groupId}/members/${memberId}`),
+  leaveGroup: (groupId) => api.post(`/groups/${groupId}/leave`),
+  getAvailableUsers: () => api.get("/groups/available-users"),
 };
 
 // ✅ Leaderboard APIs
