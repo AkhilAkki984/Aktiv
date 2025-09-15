@@ -37,6 +37,7 @@ const Chat = () => {
   const [groupName, setGroupName] = useState("");
   const [loading, setLoading] = useState(true);
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [totalUnreadCount, setTotalUnreadCount] = useState(0);
   
   // Refs
   const scrollRef = useRef();
@@ -66,6 +67,10 @@ const Chat = () => {
       setLoading(true);
       const response = await chatAPI.getConversations();
       setConversations(response.data);
+      
+      // Calculate total unread count from conversations
+      const total = response.data.reduce((sum, conv) => sum + (conv.unreadCount || 0), 0);
+      setTotalUnreadCount(total);
     } catch (err) {
       console.error("Error fetching conversations:", err);
       enqueueSnackbar("Failed to load conversations", { variant: "error" });
@@ -83,6 +88,8 @@ const Chat = () => {
       // Mark messages as read
       if (response.data.length > 0) {
         await chatAPI.markAsRead(chatId, { messageId: response.data[response.data.length - 1]._id });
+        // Refresh conversations to update unread counts in sidebar
+        await fetchConversations();
       }
     } catch (err) {
       console.error("Error fetching messages:", err);
@@ -243,7 +250,14 @@ const Chat = () => {
         {/* Header */}
         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">Messages</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white">Messages</h1>
+              {totalUnreadCount > 0 && (
+                <span className="bg-red-500 text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center">
+                  {totalUnreadCount}
+                </span>
+              )}
+            </div>
             <button
               onClick={() => {
                 setShowCreateGroup(true);

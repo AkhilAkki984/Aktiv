@@ -60,6 +60,7 @@ export const chatAPI = {
   sendChatMessage: (chatId, data) => api.post(`/chat/messages/${chatId}`, data),
   updateChatSettings: (chatId, data) => api.put(`/chat/settings/${chatId}`, data),
   markAsRead: (chatId, data) => api.put(`/chat/read/${chatId}`, data),
+  getUnreadCount: () => api.get("/chat/unread-count"),
   searchConversations: (query) => api.get("/chat/search", { params: { q: query } }),
 };
 

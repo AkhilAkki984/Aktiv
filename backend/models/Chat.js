@@ -10,13 +10,13 @@ const chatSchema = new mongoose.Schema({
     sender: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     timestamp: { type: Date }
   },
-  unreadCount: { type: Number, default: 0 },
   userSettings: [{
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     isPinned: { type: Boolean, default: false },
     isMuted: { type: Boolean, default: false },
     lastReadMessage: { type: mongoose.Schema.Types.ObjectId, ref: 'Message' },
-    lastReadAt: { type: Date }
+    lastReadAt: { type: Date },
+    unreadCount: { type: Number, default: 0 } // Per-user unread count
   }],
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
@@ -57,7 +57,7 @@ chatSchema.methods.updateLastMessage = function(message) {
 chatSchema.methods.incrementUnreadCount = function(senderId) {
   this.userSettings.forEach(setting => {
     if (setting.user.toString() !== senderId.toString()) {
-      this.unreadCount += 1;
+      setting.unreadCount = (setting.unreadCount || 0) + 1;
     }
   });
 };
@@ -68,8 +68,14 @@ chatSchema.methods.markAsRead = function(userId, messageId) {
   if (userSetting) {
     userSetting.lastReadMessage = messageId;
     userSetting.lastReadAt = new Date();
-    this.unreadCount = Math.max(0, this.unreadCount - 1);
+    userSetting.unreadCount = 0; // Reset unread count to 0
   }
+};
+
+// Method to get unread count for a specific user
+chatSchema.methods.getUnreadCount = function(userId) {
+  const userSetting = this.getUserSettings(userId);
+  return userSetting ? (userSetting.unreadCount || 0) : 0;
 };
 
 // Static method to find or create direct chat

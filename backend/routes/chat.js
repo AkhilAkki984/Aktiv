@@ -97,7 +97,7 @@ router.get("/conversations", auth, async (req, res) => {
           name: user.getFullName?.() || user.username,
           avatar: user.avatar,
           lastMessage: existingChat.lastMessage,
-          unreadCount: userSettings ? existingChat.unreadCount : 0,
+          unreadCount: existingChat.getUnreadCount(currentUserId),
           isPinned: userSettings?.isPinned || false,
           isMuted: userSettings?.isMuted || false,
           participants: existingChat.participants,
@@ -381,6 +381,30 @@ router.put("/read/:chatId", auth, async (req, res) => {
     res.json({ msg: "Messages marked as read" });
   } catch (err) {
     console.error("Error marking messages as read:", err);
+    res.status(500).json({ msg: "Server error" });
+  }
+});
+
+/**
+ * ✅ Get total unread count for user
+ */
+router.get("/unread-count", auth, async (req, res) => {
+  try {
+    const currentUserId = req.user.id;
+    
+    // Get all chats where user is a participant
+    const chats = await Chat.find({
+      participants: currentUserId
+    });
+    
+    let totalUnreadCount = 0;
+    chats.forEach(chat => {
+      totalUnreadCount += chat.getUnreadCount(currentUserId);
+    });
+    
+    res.json({ totalUnreadCount });
+  } catch (err) {
+    console.error("Error fetching unread count:", err);
     res.status(500).json({ msg: "Server error" });
   }
 });
