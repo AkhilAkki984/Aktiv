@@ -64,6 +64,16 @@ export const chatAPI = {
   searchConversations: (query) => api.get("/chat/search", { params: { q: query } }),
 };
 
+// ✅ Upload APIs
+export const uploadAPI = {
+  uploadMedia: (formData) => api.post("/upload/media", formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  }),
+  getUploadInfo: () => api.get("/upload/info"),
+};
+
 // ✅ Group APIs
 export const groupAPI = {
   createGroup: (data) => api.post("/groups", data),

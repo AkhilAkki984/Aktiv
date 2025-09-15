@@ -1,7 +1,9 @@
 import { useEffect, useState, useRef, useContext } from "react";
 import { useSnackbar } from "notistack";
-import { chatAPI, groupAPI } from "../utils/api";
+import { chatAPI, groupAPI, uploadAPI } from "../utils/api";
 import { AuthContext } from "../context/AuthContext";
+import ErrorBoundary from "../components/ErrorBoundary";
+import EmojiPicker from 'emoji-picker-react';
 import { 
   Search, 
   MoreVertical, 
@@ -18,7 +20,10 @@ import {
   X,
   Check,
   CheckCheck,
-  Clock
+  Clock,
+  Smile,
+  Camera,
+  Video as VideoIcon
 } from "lucide-react";
 
 const Chat = () => {
@@ -38,6 +43,9 @@ const Chat = () => {
   const [loading, setLoading] = useState(true);
   const [sendingMessage, setSendingMessage] = useState(false);
   const [totalUnreadCount, setTotalUnreadCount] = useState(0);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [uploadingMedia, setUploadingMedia] = useState(false);
+  const [previewMedia, setPreviewMedia] = useState(null);
   
   // Refs
   const scrollRef = useRef();
@@ -60,6 +68,20 @@ const Chat = () => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Close emoji picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showEmojiPicker && !event.target.closest('.emoji-picker-container')) {
+        setShowEmojiPicker(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showEmojiPicker]);
 
   // Fetch conversations
   const fetchConversations = async () => {
@@ -98,20 +120,39 @@ const Chat = () => {
   };
 
   // Send message
-  const sendMessage = async (content, mediaFile = null) => {
-    if (!content.trim() && !mediaFile) return;
+  const sendMessage = async (content, mediaFile = null, uploadedMedia = null) => {
+    if (!content.trim() && !mediaFile && !uploadedMedia) return;
     if (!selectedChat) return;
 
     try {
       setSendingMessage(true);
       
-      const formData = new FormData();
-      formData.append("content", content);
-      if (mediaFile) {
+      const messageData = {
+        content: content || "",
+        messageType: uploadedMedia ? uploadedMedia.mediaType : (mediaFile ? 'media' : 'text')
+      };
+
+      // Add media data if available
+      if (uploadedMedia) {
+        messageData.media = {
+          type: uploadedMedia.mediaType,
+          url: uploadedMedia.url,
+          filename: uploadedMedia.originalName,
+          size: uploadedMedia.size
+        };
+      } else if (mediaFile) {
+        const formData = new FormData();
+        formData.append("content", content);
         formData.append("media", mediaFile);
+        
+        const response = await chatAPI.sendChatMessage(selectedChat._id, formData);
+        setMessages(prev => [...prev, response.data]);
+        setMessageText("");
+        await fetchConversations();
+        return;
       }
 
-      const response = await chatAPI.sendChatMessage(selectedChat._id, formData);
+      const response = await chatAPI.sendChatMessage(selectedChat._id, messageData);
       setMessages(prev => [...prev, response.data]);
       setMessageText("");
       
@@ -132,11 +173,65 @@ const Chat = () => {
     }
   };
 
+  // Handle emoji selection
+  const handleEmojiClick = (emojiObject) => {
+    setMessageText(prev => prev + emojiObject.emoji);
+    setShowEmojiPicker(false);
+  };
+
   // Handle media upload
-  const handleMediaUpload = (event) => {
+  const handleMediaUpload = async (event) => {
     const file = event.target.files[0];
-    if (file) {
-      sendMessage("", file);
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'video/mp4', 'video/mov', 'video/avi', 'video/webm'];
+    if (!allowedTypes.includes(file.type)) {
+      enqueueSnackbar('Invalid file type. Only images (jpg, png, gif) and videos (mp4, mov, avi, webm) are allowed.', { variant: 'error' });
+      return;
+    }
+
+    // Validate file size (50MB for videos, 10MB for images)
+    const maxSize = file.type.startsWith('video/') ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      enqueueSnackbar(`File too large. Max size: ${file.type.startsWith('video/') ? '50MB' : '10MB'}`, { variant: 'error' });
+      return;
+    }
+
+    try {
+      setUploadingMedia(true);
+      
+      // Create preview
+      const previewUrl = URL.createObjectURL(file);
+      setPreviewMedia({
+        file,
+        url: previewUrl,
+        type: file.type.startsWith('image/') ? 'image' : 'video'
+      });
+
+      // Upload file
+      const formData = new FormData();
+      formData.append('media', file);
+      
+      const uploadResponse = await uploadAPI.uploadMedia(formData);
+      
+      // Send message with media
+      await sendMessage("", null, uploadResponse.data.file);
+      
+      // Clear preview
+      setPreviewMedia(null);
+      URL.revokeObjectURL(previewUrl);
+      
+    } catch (err) {
+      console.error('Error uploading media:', err);
+      enqueueSnackbar('Failed to upload media', { variant: 'error' });
+      setPreviewMedia(null);
+    } finally {
+      setUploadingMedia(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
@@ -244,7 +339,8 @@ const Chat = () => {
   };
 
   return (
-    <div className="flex h-screen bg-white dark:bg-gray-900">
+    <ErrorBoundary>
+      <div className="flex h-screen bg-white dark:bg-gray-900">
       {/* Chat Sidebar */}
       <div className="w-1/3 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex flex-col">
         {/* Header */}
@@ -410,7 +506,8 @@ const Chat = () => {
                           <img
                             src={message.media.url}
                             alt="Shared image"
-                            className="rounded-lg max-h-64 object-cover w-full"
+                            className="rounded-lg max-h-64 object-cover w-full cursor-pointer"
+                            onClick={() => window.open(message.media.url, '_blank')}
                           />
                         )}
                         {message.media.type === 'video' && (
@@ -418,7 +515,10 @@ const Chat = () => {
                             src={message.media.url}
                             controls
                             className="rounded-lg max-h-64 w-full"
-                          />
+                            preload="metadata"
+                          >
+                            Your browser does not support the video tag.
+                          </video>
                         )}
                         {message.media.type === 'audio' && (
                           <audio src={message.media.url} controls className="w-full" />
@@ -449,23 +549,73 @@ const Chat = () => {
             </div>
 
             {/* Message Input */}
-            <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+            <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 relative">
+              {/* Media Preview */}
+              {previewMedia && (
+                <div className="mb-3 p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">
+                      {previewMedia.type === 'image' ? 'Image' : 'Video'} preview
+                    </span>
+                    <button
+                      onClick={() => {
+                        setPreviewMedia(null);
+                        URL.revokeObjectURL(previewMedia.url);
+                      }}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                  {previewMedia.type === 'image' ? (
+                    <img
+                      src={previewMedia.url}
+                      alt="Preview"
+                      className="mt-2 max-h-32 rounded-lg object-cover"
+                    />
+                  ) : (
+                    <video
+                      src={previewMedia.url}
+                      className="mt-2 max-h-32 rounded-lg"
+                      controls
+                    />
+                  )}
+                </div>
+              )}
+
               <div className="flex items-center gap-2">
+                {/* Media Upload Button */}
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400"
+                  disabled={uploadingMedia}
+                  className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 disabled:opacity-50"
+                  title="Upload media"
                 >
-                  <Paperclip size={20} />
+                  {uploadingMedia ? (
+                    <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <Camera size={20} />
+                  )}
                 </button>
                 
                 <input
                   type="file"
                   ref={fileInputRef}
                   onChange={handleMediaUpload}
-                  accept="image/*,video/*,audio/*,.pdf,.doc,.docx"
+                  accept="image/jpeg,image/jpg,image/png,image/gif,video/mp4,video/mov,video/avi,video/webm"
                   className="hidden"
                 />
                 
+                {/* Emoji Button */}
+                <button
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                  className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400"
+                  title="Add emoji"
+                >
+                  <Smile size={20} />
+                </button>
+                
+                {/* Message Input */}
                 <input
                   type="text"
                   placeholder="Type a message..."
@@ -475,14 +625,31 @@ const Chat = () => {
                   className="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-full text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 
+                {/* Send Button */}
                 <button
                   onClick={handleSendMessage}
-                  disabled={!messageText.trim() || sendingMessage}
+                  disabled={(!messageText.trim() && !previewMedia) || sendingMessage || uploadingMedia}
                   className="p-2 rounded-full bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   <Send size={20} />
                 </button>
               </div>
+
+              {/* Emoji Picker */}
+              {showEmojiPicker && (
+                <div className="absolute bottom-16 left-4 z-50 emoji-picker-container">
+                  <EmojiPicker
+                    onEmojiClick={handleEmojiClick}
+                    width={300}
+                    height={400}
+                    searchDisabled={false}
+                    skinTonesDisabled={false}
+                    previewConfig={{
+                      showPreview: true
+                    }}
+                  />
+                </div>
+              )}
             </div>
           </>
         ) : (
@@ -577,7 +744,8 @@ const Chat = () => {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </ErrorBoundary>
   );
 };
 
