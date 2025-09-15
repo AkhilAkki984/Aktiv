@@ -10,6 +10,8 @@ import Feed from "./pages/Feed";
 import Partners from "./pages/Partners";
 import Leaderboard from "./pages/Leaderboard";
 import Goals from "./pages/Goals";
+import FindPartners from "./pages/FindPartners";
+import UserProfile from "./pages/UserProfile";
 import Landing from "./pages/Landing";
 import LoginSignup from "./pages/LoginSignup";
 
@@ -95,6 +97,22 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <Goals />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/find-partners"
+        element={
+          <PrivateRoute>
+            <FindPartners />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/profile/:userId"
+        element={
+          <PrivateRoute>
+            <UserProfile />
           </PrivateRoute>
         }
       />

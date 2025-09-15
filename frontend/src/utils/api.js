@@ -76,4 +76,25 @@ export const goalsAPI = {
   getStats: () => api.get("/goals/stats/overview"),
 };
 
+// ✅ Partners APIs
+export const partnersAPI = {
+  getPartners: (params) => api.get("/partners", { params }),
+  getPartner: (id) => api.get(`/partners/${id}`),
+  connect: (id, data) => api.post(`/partners/connect/${id}`, data),
+  acceptRequest: (connectionId) => api.put(`/partners/accept/${connectionId}`),
+  rejectRequest: (connectionId) => api.put(`/partners/reject/${connectionId}`),
+  cancelRequest: (connectionId) => api.delete(`/partners/cancel/${connectionId}`),
+  getPendingRequests: () => api.get("/partners/pending-requests"),
+  getActivePartners: () => api.get("/partners/active-partners"),
+  getConnections: (id, type) => api.get(`/partners/connections/${id}`, { params: { type } }),
+  
+  // New status-based endpoints
+  getAvailablePartners: (params) => api.get("/partners", { params: { ...params, status: 'available' } }),
+  getPendingPartners: (params) => api.get("/partners", { params: { ...params, status: 'pending' } }),
+  getAcceptedPartners: (params) => api.get("/partners", { params: { ...params, status: 'accepted' } }),
+  
+  // Count endpoint
+  getPartnerCounts: () => api.get("/partners/count"),
+};
+
 export default api;

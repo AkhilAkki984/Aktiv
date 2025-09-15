@@ -123,10 +123,9 @@ const Dashboard = () => {
         <nav className="hidden md:flex items-center gap-6 text-gray-700 dark:text-gray-200 font-medium">
           <button onClick={() => navigate("/dashboard")} className="cursor-pointer">Dashboard</button>
           <button onClick={() => navigate("/goals")} className="cursor-pointer">Goals</button>
-          <button onClick={() => navigate("/matches")} className="cursor-pointer">Matches</button>
+          <button onClick={() => navigate("/find-partners")} className="cursor-pointer">Find Partners</button>
           <button onClick={() => navigate("/chat/samplePartnerId")} className="cursor-pointer">Chat</button>
           <button onClick={() => navigate("/feed")} className="cursor-pointer">Feed</button>
-          <button onClick={() => navigate("/partners")} className="cursor-pointer">Partners</button>
           <button onClick={() => navigate("/leaderboard")} className="cursor-pointer">Leaderboard</button>
         </nav>
 
