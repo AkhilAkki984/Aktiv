@@ -328,13 +328,13 @@ const Chat = () => {
     
     switch (message.status) {
       case 'sent':
-        return <Clock size={12} className="text-gray-400" />;
+        return <Check size={12} className="text-blue-200" />;
       case 'delivered':
-        return <Check size={12} className="text-gray-400" />;
+        return <CheckCheck size={12} className="text-blue-200" />;
       case 'read':
-        return <CheckCheck size={12} className="text-blue-500" />;
+        return <CheckCheck size={12} className="text-blue-100" />;
       default:
-        return <Clock size={12} className="text-gray-400" />;
+        return <Clock size={12} className="text-blue-200" />;
     }
   };
 
@@ -452,10 +452,38 @@ const Chat = () => {
                 <img
                   src={selectedChat.avatar || `https://ui-avatars.com/api/?name=${selectedChat.name}&background=random`}
                   alt={selectedChat.name}
-                  className="w-10 h-10 rounded-full object-cover"
+                  className="w-10 h-10 rounded-full object-cover cursor-pointer"
+                  onClick={() => {
+                    if (selectedChat.type === 'group') {
+                      // Show group info or handle group profile
+                      console.log('Group profile clicked');
+                    } else {
+                      // Navigate to user profile
+                      const otherParticipant = selectedChat.participants?.find(p => p._id !== user.id);
+                      if (otherParticipant) {
+                        window.location.href = `/profile/${otherParticipant._id}`;
+                      }
+                    }
+                  }}
                 />
                 <div>
-                  <h2 className="font-semibold text-gray-900 dark:text-white">{selectedChat.name}</h2>
+                  <h2 
+                    className="font-semibold text-gray-900 dark:text-white cursor-pointer hover:text-blue-600 transition-colors"
+                    onClick={() => {
+                      if (selectedChat.type === 'group') {
+                        // Show group info or handle group profile
+                        console.log('Group profile clicked');
+                      } else {
+                        // Navigate to user profile
+                        const otherParticipant = selectedChat.participants?.find(p => p._id !== user.id);
+                        if (otherParticipant) {
+                          window.location.href = `/profile/${otherParticipant._id}`;
+                        }
+                      }
+                    }}
+                  >
+                    {selectedChat.name}
+                  </h2>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
                     {selectedChat.type === 'group' ? `${selectedChat.participants.length} members` : 'Active now'}
                   </p>
@@ -486,65 +514,99 @@ const Chat = () => {
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {messages.map((message) => (
-                <div
-                  key={message._id}
-                  className={`flex ${message.sender._id === user.id ? 'justify-end' : 'justify-start'}`}
-                >
+            <div className="flex-1 overflow-y-auto p-4 space-y-2 bg-gradient-to-b from-green-50 to-green-100 dark:from-gray-800 dark:to-gray-900" style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23e5f3e5' fill-opacity='0.1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+              backgroundRepeat: 'repeat'
+            }}>
+              {messages.map((message, index) => {
+                const isOwnMessage = message.sender._id === user.id;
+                const prevMessage = index > 0 ? messages[index - 1] : null;
+                const showAvatar = !isOwnMessage && (!prevMessage || prevMessage.sender._id !== message.sender._id);
+                
+                return (
                   <div
-                    className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl ${
-                      message.sender._id === user.id
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white'
-                    }`}
+                    key={message._id}
+                    className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} mb-1`}
                   >
-                    {/* Media Content */}
-                    {message.media && (
-                      <div className="mb-2">
-                        {message.media.type === 'image' && (
+                    <div className={`flex items-end gap-2 max-w-xs lg:max-w-md ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`}>
+                      {/* Avatar for received messages */}
+                      {!isOwnMessage && showAvatar && (
+                        <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
                           <img
-                            src={message.media.url}
-                            alt="Shared image"
-                            className="rounded-lg max-h-64 object-cover w-full cursor-pointer"
-                            onClick={() => window.open(message.media.url, '_blank')}
+                            src={message.sender.avatar || `https://ui-avatars.com/api/?name=${message.sender.username}&background=random`}
+                            alt={message.sender.username}
+                            className="w-full h-full object-cover"
                           />
-                        )}
-                        {message.media.type === 'video' && (
-                          <video
-                            src={message.media.url}
-                            controls
-                            className="rounded-lg max-h-64 w-full"
-                            preload="metadata"
-                          >
-                            Your browser does not support the video tag.
-                          </video>
-                        )}
-                        {message.media.type === 'audio' && (
-                          <audio src={message.media.url} controls className="w-full" />
-                        )}
-                        {message.media.type === 'document' && (
-                          <div className="flex items-center gap-2 p-2 bg-gray-200 dark:bg-gray-600 rounded">
-                            <FileText size={20} />
-                            <span className="text-sm">{message.media.filename}</span>
+                        </div>
+                      )}
+                      
+                      {/* Spacer for alignment when no avatar */}
+                      {!isOwnMessage && !showAvatar && <div className="w-8"></div>}
+                      
+                      {/* Message bubble */}
+                      <div
+                        className={`relative px-4 py-2 rounded-2xl shadow-sm ${
+                          isOwnMessage
+                            ? 'bg-blue-500 text-white rounded-br-md'
+                            : 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-bl-md border border-gray-200 dark:border-gray-600'
+                        }`}
+                        style={{
+                          maxWidth: '280px',
+                          wordWrap: 'break-word'
+                        }}
+                      >
+                        {/* Media Content */}
+                        {message.media && (
+                          <div className="mb-2 -mx-2 -mt-2">
+                            {message.media.type === 'image' && (
+                              <img
+                                src={message.media.url}
+                                alt="Shared image"
+                                className="rounded-t-lg max-h-64 object-cover w-full cursor-pointer"
+                                onClick={() => window.open(message.media.url, '_blank')}
+                              />
+                            )}
+                            {message.media.type === 'video' && (
+                              <video
+                                src={message.media.url}
+                                controls
+                                className="rounded-t-lg max-h-64 w-full"
+                                preload="metadata"
+                              >
+                                Your browser does not support the video tag.
+                              </video>
+                            )}
+                            {message.media.type === 'audio' && (
+                              <audio src={message.media.url} controls className="w-full" />
+                            )}
+                            {message.media.type === 'document' && (
+                              <div className="flex items-center gap-2 p-2 bg-gray-200 dark:bg-gray-600 rounded">
+                                <FileText size={20} />
+                                <span className="text-sm">{message.media.filename}</span>
+                              </div>
+                            )}
                           </div>
                         )}
+                        
+                        {/* Text Content */}
+                        {message.content && (
+                          <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                            {message.content}
+                          </p>
+                        )}
+                        
+                        {/* Message Footer */}
+                        <div className={`flex items-center gap-1 mt-1 ${isOwnMessage ? 'justify-end' : 'justify-start'}`}>
+                          <span className={`text-xs ${isOwnMessage ? 'text-blue-100' : 'text-gray-500'}`}>
+                            {formatTime(message.createdAt)}
+                          </span>
+                          {isOwnMessage && getMessageStatusIcon(message)}
+                        </div>
                       </div>
-                    )}
-                    
-                    {/* Text Content */}
-                    {message.content && <p className="text-sm">{message.content}</p>}
-                    
-                    {/* Message Footer */}
-                    <div className="flex items-center justify-end gap-1 mt-1">
-                      <span className="text-xs opacity-70">
-                        {formatTime(message.createdAt)}
-                      </span>
-                      {getMessageStatusIcon(message)}
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               <div ref={messagesEndRef} />
             </div>
 
@@ -583,20 +645,20 @@ const Chat = () => {
                 </div>
               )}
 
-              <div className="flex items-center gap-2">
-                {/* Media Upload Button */}
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploadingMedia}
-                  className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 disabled:opacity-50"
-                  title="Upload media"
-                >
-                  {uploadingMedia ? (
-                    <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
-                  ) : (
-                    <Camera size={20} />
-                  )}
-                </button>
+               <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 rounded-full px-4 py-2">
+                 {/* Media Upload Button */}
+                 <button
+                   onClick={() => fileInputRef.current?.click()}
+                   disabled={uploadingMedia}
+                   className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 disabled:opacity-50 transition-colors"
+                   title="Upload media"
+                 >
+                   {uploadingMedia ? (
+                     <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                   ) : (
+                     <Paperclip size={20} />
+                   )}
+                 </button>
                 
                 <input
                   type="file"
@@ -609,7 +671,7 @@ const Chat = () => {
                 {/* Emoji Button */}
                 <button
                   onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                  className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400"
+                  className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 transition-colors"
                   title="Add emoji"
                 >
                   <Smile size={20} />
@@ -622,14 +684,14 @@ const Chat = () => {
                   value={messageText}
                   onChange={(e) => setMessageText(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                  className="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-full text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 px-3 py-2 bg-transparent text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none"
                 />
                 
                 {/* Send Button */}
                 <button
                   onClick={handleSendMessage}
                   disabled={(!messageText.trim() && !previewMedia) || sendingMessage || uploadingMedia}
-                  className="p-2 rounded-full bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="p-2 rounded-full bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   <Send size={20} />
                 </button>

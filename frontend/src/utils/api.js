@@ -84,6 +84,9 @@ export const groupAPI = {
   removeMember: (groupId, memberId) => api.delete(`/groups/${groupId}/members/${memberId}`),
   leaveGroup: (groupId) => api.post(`/groups/${groupId}/leave`),
   getAvailableUsers: () => api.get("/groups/available-users"),
+  updateGroupSettings: (groupId, data) => api.put(`/groups/${groupId}/settings`, data),
+  updateUserSettings: (groupId, data) => api.put(`/groups/${groupId}/user-settings`, data),
+  getGroupMessages: (groupId, params) => api.get(`/groups/${groupId}/messages`, { params }),
 };
 
 // ✅ Leaderboard APIs
@@ -106,6 +109,18 @@ export const goalsAPI = {
   checkIn: (id, data) => api.post(`/goals/${id}/checkin`, data),
   getCheckIns: (id) => api.get(`/goals/${id}/checkins`),
   getStats: () => api.get("/goals/stats/overview"),
+};
+
+// ✅ Posts APIs
+export const postsAPI = {
+  getPosts: (params) => api.get("/posts", { params }),
+  getPost: (id) => api.get(`/posts/${id}`),
+  createPost: (data) => api.post("/posts", data),
+  deletePost: (id) => api.delete(`/posts/${id}`),
+  likePost: (id) => api.put(`/posts/${id}/like`),
+  commentPost: (id, data) => api.post(`/posts/${id}/comment`, data),
+  sharePost: (id, data) => api.put(`/posts/${id}/share`, data),
+  congratulatePost: (id) => api.put(`/posts/${id}/congratulate`),
 };
 
 // ✅ Partners APIs

@@ -5,6 +5,8 @@ import cors from "cors";
 import dotenv from "dotenv";
 import mongoose from "mongoose"; // Ensure mongoose is imported
 import connectDB from "./config/db.js";
+import { initializeChatSocket } from "./socket/chatSocket.js";
+import { initializeFeedSocket } from "./socket/feedSocket.js";
 import passport from "passport";
 import authRoutes from "./routes/auth.js";
 import userRoutes from "./routes/users.js";
@@ -17,6 +19,7 @@ import partnerRoutes from "./routes/partners.js";
 import leaderboardRoutes from "./routes/leaderboard.js";
 import dashboardRoutes from "./routes/dashboard.js";
 import goalsRoutes from "./routes/goals.js";
+import postsRoutes from "./routes/posts.js";
 
 dotenv.config();
 
@@ -40,6 +43,7 @@ app.use("/api/partners", partnerRoutes);
 app.use("/api/leaderboard", leaderboardRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/goals", goalsRoutes);
+app.use("/api/posts", postsRoutes);
 
 // Initialize Socket.IO
 const io = new Server(server, {
@@ -49,6 +53,10 @@ const io = new Server(server, {
     credentials: true,
   },
 });
+
+// Initialize socket events
+initializeChatSocket(io);
+initializeFeedSocket(io);
 
 // Initialize GridFS and image-serving route after MongoDB connection
 let gfs;

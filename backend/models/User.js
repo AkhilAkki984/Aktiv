@@ -43,6 +43,10 @@ const userSchema = new mongoose.Schema({
   connectionCount: { type: Number, default: 0 },
   postsCount: { type: Number, default: 0 },
   
+  // Online Status
+  isOnline: { type: Boolean, default: false },
+  lastSeen: { type: Date, default: Date.now },
+  
   // Timestamps
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
