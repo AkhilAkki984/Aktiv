@@ -25,7 +25,7 @@ const Leaderboard = () => {
   const [leaders, setLeaders] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [selectedMetric, setSelectedMetric] = useState('score');
+  const [selectedMetric, setSelectedMetric] = useState('streak');
   const [selectedFilter, setSelectedFilter] = useState('thisWeek');
   const [customDateRange, setCustomDateRange] = useState({ start: '', end: '' });
   const [showCustomDate, setShowCustomDate] = useState(false);
@@ -34,11 +34,9 @@ const Leaderboard = () => {
   const socket = useSocket();
 
   const metrics = [
-    { id: 'score', name: 'Score', icon: Trophy, color: 'text-yellow-500' },
-    { id: 'goals', name: 'Goals', icon: Target, color: 'text-green-500' },
     { id: 'streak', name: 'Streak', icon: Flame, color: 'text-orange-500' },
     { id: 'checkins', name: 'Check-ins', icon: CheckCircle, color: 'text-blue-500' },
-    { id: 'partners', name: 'Partners', icon: Users, color: 'text-purple-500' }
+    { id: 'goals', name: 'Goals Achieved', icon: Target, color: 'text-green-500' }
   ];
 
   const dateFilters = [
@@ -174,12 +172,12 @@ const Leaderboard = () => {
               <div className="flex-1">
                 <h2 className="text-xl font-bold mb-1">Your Current Rank</h2>
                 <p className="text-sm opacity-90 capitalize">
-                  {selectedMetric === 'streak' ? 'Streak' : selectedMetric} • This week
+                  {selectedMetric === 'streak' ? 'Streak' : selectedMetric === 'goals' ? 'Goals Achieved' : 'Check-ins'} • This week
                 </p>
               </div>
               <div className="text-right">
                 <div className="text-2xl font-bold">
-                  {currentUser.metricValue} {selectedMetric === 'streak' ? 'days' : selectedMetric === 'score' ? 'pts' : ''}
+                  {currentUser.metricValue} {selectedMetric === 'streak' ? 'days' : selectedMetric === 'goals' ? 'goals' : selectedMetric === 'checkins' ? 'check-ins' : ''}
                 </div>
               </div>
             </div>
@@ -276,7 +274,7 @@ const Leaderboard = () => {
         >
           <div className="p-6 border-b border-gray-700">
             <h3 className="text-lg font-semibold text-white">
-              Top Performers - {selectedMetric === 'score' ? 'Score' : selectedMetric.charAt(0).toUpperCase() + selectedMetric.slice(1)}
+              Top Performers - {selectedMetric === 'streak' ? 'Streak' : selectedMetric === 'goals' ? 'Goals Achieved' : 'Check-ins'}
             </h3>
           </div>
 
@@ -343,7 +341,7 @@ const Leaderboard = () => {
                       {/* Metric Value */}
                       <div className="text-right">
                         <div className="text-lg font-bold text-white">
-                          {leader.metricValue} {selectedMetric === 'streak' ? 'days' : selectedMetric === 'score' ? 'pts' : ''}
+                          {leader.metricValue} {selectedMetric === 'streak' ? 'days' : selectedMetric === 'goals' ? 'goals' : selectedMetric === 'checkins' ? 'check-ins' : ''}
                         </div>
                       </div>
                       
@@ -389,7 +387,7 @@ const Leaderboard = () => {
           className="mt-8"
         >
           <h3 className="text-lg font-semibold text-white mb-4">Achievement Badges</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-gray-800 rounded-lg p-4 text-center">
               <div className="text-2xl mb-2">🔥</div>
               <h4 className="font-semibold text-white text-sm">Streak Master</h4>
@@ -399,11 +397,6 @@ const Leaderboard = () => {
               <div className="text-2xl mb-2">🎯</div>
               <h4 className="font-semibold text-white text-sm">Goal Crusher</h4>
               <p className="text-gray-400 text-xs">10+ goals achieved</p>
-            </div>
-            <div className="bg-gray-800 rounded-lg p-4 text-center">
-              <div className="text-2xl mb-2">🦋</div>
-              <h4 className="font-semibold text-white text-sm">Social Butterfly</h4>
-              <p className="text-gray-400 text-xs">5+ active partners</p>
             </div>
             <div className="bg-gray-800 rounded-lg p-4 text-center">
               <div className="text-2xl mb-2">👑</div>

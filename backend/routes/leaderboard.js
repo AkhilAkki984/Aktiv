@@ -62,23 +62,34 @@ const calculateUserMetrics = async (userId, metric, dateRange) => {
     case 'goals':
       const goals = await Goal.find({ 
         userId, 
-        status: 'COMPLETED',
-        ...(dateRange && { completedAt: { $gte: dateRange.start, $lte: dateRange.end } })
+        status: 'COMPLETED'
       });
       return goals.length;
     
     case 'streak':
       const checkIns = await CheckIn.find({ 
-        userId,
-        ...(dateRange && { createdAt: { $gte: dateRange.start, $lte: dateRange.end } })
+        userId
       }).sort({ createdAt: -1 });
       
       if (checkIns.length === 0) return 0;
       
       let streak = 0;
-      let currentDate = new Date(checkIns[0].createdAt);
+      let currentDate = new Date();
       currentDate.setHours(0, 0, 0, 0);
       
+      // Check if user has checked in today
+      const todayCheckIn = checkIns.find(checkIn => {
+        const checkInDate = new Date(checkIn.createdAt);
+        checkInDate.setHours(0, 0, 0, 0);
+        return checkInDate.getTime() === currentDate.getTime();
+      });
+      
+      if (!todayCheckIn) {
+        // If no check-in today, start from yesterday
+        currentDate.setDate(currentDate.getDate() - 1);
+      }
+      
+      // Count consecutive days
       for (let i = 0; i < checkIns.length; i++) {
         const checkInDate = new Date(checkIns[i].createdAt);
         checkInDate.setHours(0, 0, 0, 0);
@@ -94,17 +105,12 @@ const calculateUserMetrics = async (userId, metric, dateRange) => {
     
     case 'checkins':
       const checkInsCount = await CheckIn.countDocuments({ 
-        userId,
-        ...(dateRange && { createdAt: { $gte: dateRange.start, $lte: dateRange.end } })
+        userId
       });
       return checkInsCount;
     
-    case 'partners':
-      const partners = await getUserPartners(userId);
-      return partners.length;
-    
     default:
-      return user.score || 0;
+      return 0;
   }
 };
 
@@ -131,11 +137,6 @@ const getAchievementBadges = (user, metric, value) => {
       else if (value >= 50) badges.push({ name: 'Check-in Regular', icon: '🎖️', color: 'bronze' });
       break;
     
-    case 'partners':
-      if (value >= 20) badges.push({ name: 'Social Butterfly', icon: '🦋', color: 'gold' });
-      else if (value >= 10) badges.push({ name: 'Team Player', icon: '🤝', color: 'silver' });
-      else if (value >= 5) badges.push({ name: 'Connector', icon: '🔗', color: 'bronze' });
-      break;
   }
   
   return badges;
@@ -145,7 +146,7 @@ const getAchievementBadges = (user, metric, value) => {
 router.get("/", auth, async (req, res) => {
   try {
     const { 
-      metric = 'score', 
+      metric = 'streak', 
       filter = 'thisWeek', 
       startDate, 
       endDate,
