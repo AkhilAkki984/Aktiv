@@ -91,7 +91,8 @@ export const groupAPI = {
 
 // ✅ Leaderboard APIs
 export const leaderboardAPI = {
-  getLeaderboard: () => api.get("/leaderboard"),
+  getLeaderboard: (params) => api.get("/leaderboard", { params }),
+  getRankHistory: (userId, params) => api.get(`/leaderboard/rank-history/${userId}`, { params }),
 };
 
 // ✅ Dashboard APIs

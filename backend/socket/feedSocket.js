@@ -99,6 +99,26 @@ export const initializeFeedSocket = (io) => {
       });
     });
 
+    // Handle leaderboard updates
+    socket.on('leaderboard_update', (data) => {
+      // Broadcast leaderboard update to all users
+      socket.to('feed').emit('leaderboard_updated', {
+        metric: data.metric,
+        filter: data.filter,
+        timestamp: new Date()
+      });
+    });
+
+    // Handle user activity that affects leaderboard
+    socket.on('user_activity', (data) => {
+      // Broadcast to all users that leaderboard might need refresh
+      socket.to('feed').emit('leaderboard_activity', {
+        userId: socket.userId,
+        activityType: data.type, // 'goal_completed', 'checkin', 'connection_added', etc.
+        timestamp: new Date()
+      });
+    });
+
     // Handle disconnect
     socket.on('disconnect', () => {
       console.log(`User ${socket.user.username} disconnected from feed`);
