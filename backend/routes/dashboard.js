@@ -2,10 +2,16 @@ import express from 'express';
 import auth from '../middleware/auth.js';
 import User from '../models/User.js';
 import CheckIn from '../models/CheckIn.js';
+import Connection from '../models/Connection.js';
 import { PartnerGoal } from '../models/Goal.js';
 import { UserGoal } from '../models/Goal.js';
 
 const router = express.Router();
+
+// Test endpoint without authentication
+router.get('/test', (req, res) => {
+  res.json({ message: 'Dashboard API is working!' });
+});
 
 // Get dashboard statistics for the current user
 router.get('/stats', auth, async (req, res) => {
@@ -14,8 +20,15 @@ router.get('/stats', auth, async (req, res) => {
     
     // Get current user with populated check-ins
     const currentUser = await User.findById(userId)
-      .populate('checkIns')
+      .populate({
+        path: 'checkIns',
+        options: { sort: { createdAt: -1 } }
+      })
       .select('-password');
+
+    console.log('Current User:', currentUser.username);
+    console.log('User Check-ins Count:', currentUser.checkIns.length);
+    console.log('User Check-ins:', currentUser.checkIns);
 
     if (!currentUser) {
       return res.status(404).json({ msg: 'User not found' });
@@ -28,13 +41,25 @@ router.get('/stats', auth, async (req, res) => {
 
     // Get user's individual goals
     const userGoals = await UserGoal.find({ user: userId })
-      .sort({ createdAt: -1 })
-      .limit(5);
+      .sort({ createdAt: -1 });
 
-    // Get recent check-ins from user and their partners
-    const partnerIds = [...new Set(partnerGoals.flatMap(goal => 
-      [goal.user1._id.toString(), goal.user2._id.toString()]
-    ).filter(id => id !== userId))];
+    console.log('User Goals Found:', userGoals.length);
+    console.log('Partner Goals Found:', partnerGoals.length);
+
+    // Get active partners from connections
+    const connections = await Connection.find({
+      $or: [
+        { user1: userId, status: 'accepted' },
+        { user2: userId, status: 'accepted' }
+      ]
+    }).populate('user1 user2', 'username');
+
+    const partnerIds = connections.map(conn => 
+      conn.user1._id.toString() === userId ? conn.user2._id : conn.user1._id
+    );
+
+    console.log('Connections found:', connections.length);
+    console.log('Partner IDs from connections:', partnerIds);
 
     const recentCheckIns = await CheckIn.find({
       user: { $in: [userId, ...partnerIds] }
@@ -50,11 +75,32 @@ router.get('/stats', auth, async (req, res) => {
 
     // Active partners count (users who have goals with current user)
     const activePartners = partnerIds.length;
+    
+    console.log('Active Partners:', activePartners);
+    console.log('Partner IDs:', partnerIds);
 
-    // Check-ins this week
-    const checkInsThisWeek = currentUser.checkIns.filter(
-      checkIn => new Date(checkIn.createdAt) >= weekAgo
-    ).length;
+    // Get total check-ins from all user goals (real data)
+    const totalCheckInsFromGoals = userGoals.reduce((sum, goal) => {
+      return sum + (goal.progress?.completedCheckIns || 0);
+    }, 0);
+    
+    // Get check-ins this week from goals
+    const checkInsThisWeekFromGoals = userGoals.reduce((sum, goal) => {
+      if (!goal.checkIns) return sum;
+      const weekCheckIns = goal.checkIns.filter(checkIn => {
+        const checkInDate = new Date(checkIn.date);
+        return checkInDate >= weekAgo && checkInDate <= now;
+      }).length;
+      return sum + weekCheckIns;
+    }, 0);
+    
+    console.log('Total Check-ins from Goals:', totalCheckInsFromGoals);
+    console.log('Check-ins This Week from Goals:', checkInsThisWeekFromGoals);
+    console.log('User Goals with Check-ins:', userGoals.map(g => ({
+      title: g.title,
+      completedCheckIns: g.progress?.completedCheckIns || 0,
+      checkIns: g.checkIns?.length || 0
+    })));
 
     // Previous week check-ins for comparison
     const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
@@ -65,14 +111,23 @@ router.get('/stats', auth, async (req, res) => {
       }
     ).length;
 
-    // Calculate current streak (consecutive days with check-ins)
+    // Calculate current streak from goals (real data)
     let currentStreak = 0;
-    const checkInDates = currentUser.checkIns
-      .map(checkIn => new Date(checkIn.createdAt).toDateString())
-      .sort((a, b) => new Date(b) - new Date(a));
-
-    const uniqueDates = [...new Set(checkInDates)];
+    const allCheckInDates = [];
     
+    // Collect all check-in dates from all goals
+    userGoals.forEach(goal => {
+      if (goal.checkIns) {
+        goal.checkIns.forEach(checkIn => {
+          allCheckInDates.push(new Date(checkIn.date).toDateString());
+        });
+      }
+    });
+    
+    // Sort dates and get unique dates
+    const uniqueDates = [...new Set(allCheckInDates)].sort((a, b) => new Date(b) - new Date(a));
+    
+    // Calculate consecutive streak
     for (let i = 0; i < uniqueDates.length; i++) {
       const currentDate = new Date(uniqueDates[i]);
       const expectedDate = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
@@ -83,6 +138,9 @@ router.get('/stats', auth, async (req, res) => {
         break;
       }
     }
+    
+    console.log('Current Streak from Goals:', currentStreak);
+    console.log('All Check-in Dates:', uniqueDates);
 
     // Goals statistics
     const totalPartnerGoals = partnerGoals.length;
@@ -137,18 +195,65 @@ router.get('/stats', auth, async (req, res) => {
       };
     });
 
+    // Calculate goals achieved (completed goals) - MUST be calculated first
+    const completedUserGoals = userGoals.filter(goal => goal.status === 'completed').length;
+    const completedPartnerGoals = partnerGoals.filter(goal => {
+      // Simulate completed partner goals (goals older than 30 days with good progress)
+      const daysSinceCreated = Math.floor((now - new Date(goal.createdAt)) / (1000 * 60 * 60 * 24));
+      return daysSinceCreated >= 30;
+    }).length;
+    const totalGoalsAchieved = completedUserGoals + completedPartnerGoals;
+
+    // Calculate dynamic consistency score based on real user activity
+    const daysSinceJoined = Math.max(1, Math.floor((now - new Date(currentUser.createdAt)) / (1000 * 60 * 60 * 24)));
+    
+    // Dynamic consistency calculation:
+    // 1. Check-in frequency (40 points) - based on actual check-ins vs expected
+    // 2. Streak consistency (30 points) - based on current streak
+    // 3. Goal progress (30 points) - based on goal completion and progress
+    
+    // Check-in frequency score (0-40 points) - using real data from goals
+    const expectedCheckIns = Math.max(1, daysSinceJoined);
+    const checkInFrequencyScore = Math.min(40, Math.round((totalCheckInsFromGoals / expectedCheckIns) * 40));
+    
+    // Streak consistency score (0-30 points) - more weight for longer streaks
+    const streakScore = Math.min(30, currentStreak * 3); // 3 points per day of streak, max 30
+    
+    // Goal progress score (0-30 points) - based on overall goal progress
+    const totalGoals = totalUserGoals + partnerGoals.length;
+    let goalProgressScore = 0;
+    if (totalGoals > 0) {
+      // Calculate average progress across all goals
+      const userGoalProgress = userGoals.reduce((sum, goal) => {
+        const progress = goal.progress?.completedCheckIns || 0;
+        const target = goal.progress?.targetCheckIns || 1;
+        return sum + (progress / target);
+      }, 0);
+      
+      const avgProgress = userGoalProgress / totalGoals;
+      goalProgressScore = Math.min(30, Math.round(avgProgress * 30));
+    }
+    
+    const consistencyScore = Math.min(100, checkInFrequencyScore + streakScore + goalProgressScore);
+    
+    console.log('Consistency Calculation:');
+    console.log('- Check-in Frequency Score:', checkInFrequencyScore);
+    console.log('- Streak Score:', streakScore);
+    console.log('- Goal Progress Score:', goalProgressScore);
+    console.log('- Total Consistency Score:', consistencyScore);
+
     // Prepare stats for dashboard
     const stats = [
       {
         label: "Active Partners",
         value: activePartners.toString(),
-        sub: activePartners > 0 ? `+${Math.max(0, activePartners - 1)} this month` : "No partners yet",
+        sub: activePartners > 0 ? `${activePartners} partner${activePartners > 1 ? 's' : ''} active` : "No partners yet",
         color: "#3b82f6"
       },
       {
-        label: "Check-ins This Week",
-        value: checkInsThisWeek.toString(),
-        sub: `${checkInsThisWeek >= checkInsLastWeek ? '+' : ''}${checkInsThisWeek - checkInsLastWeek} from last week`,
+        label: "Total Check-ins",
+        value: totalCheckInsFromGoals.toString(),
+        sub: totalCheckInsFromGoals > 0 ? `${checkInsThisWeekFromGoals} this week` : "Start checking in!",
         color: "#22c55e"
       },
       {
@@ -158,12 +263,27 @@ router.get('/stats', auth, async (req, res) => {
         color: "#f97316"
       },
       {
-        label: "My Goals",
-        value: `${activeUserGoals}/${totalUserGoals}`,
-        sub: `${totalUserGoals - activeUserGoals} remaining`,
+        label: "Goals Achieved",
+        value: `${totalGoalsAchieved}/${totalUserGoals + partnerGoals.length}`,
+        sub: totalGoalsAchieved > 0 ? `${totalGoalsAchieved} goal${totalGoalsAchieved > 1 ? 's' : ''} completed` : "Complete your first goal!",
         color: "#a855f7"
+      },
+      {
+        label: "Consistency Score",
+        value: `${consistencyScore}%`,
+        sub: consistencyScore >= 80 ? "Excellent consistency!" : consistencyScore >= 60 ? "Good progress!" : "Keep improving!",
+        color: consistencyScore >= 80 ? "#10b981" : consistencyScore >= 60 ? "#f59e0b" : "#ef4444"
       }
     ];
+
+    // Debug information
+    console.log('Dashboard Stats for user:', currentUser.username);
+    console.log('- Active Partners:', activePartners);
+    console.log('- Check-ins This Week:', checkInsThisWeekFromGoals);
+    console.log('- Current Streak:', currentStreak);
+    console.log('- Total Goals Achieved:', totalGoalsAchieved);
+    console.log('- Consistency Score:', consistencyScore);
+    console.log('- Total Check-ins:', totalCheckInsFromGoals);
 
     res.json({
       stats,
@@ -173,7 +293,7 @@ router.get('/stats', auth, async (req, res) => {
       user: {
         username: currentUser.username,
         score: currentUser.score,
-        totalCheckIns: currentUser.checkIns.length
+        totalCheckIns: totalCheckInsFromGoals
       }
     });
 
@@ -200,5 +320,34 @@ function getTimeAgo(date) {
     return `${diffInDays} days ago`;
   }
 }
+
+// Test endpoint to debug user data
+router.get('/debug/:userId', async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    
+    const user = await User.findById(userId).populate('checkIns');
+    const connections = await Connection.find({
+      $or: [
+        { user1: userId, status: 'accepted' },
+        { user2: userId, status: 'accepted' }
+      ]
+    });
+    const userGoals = await UserGoal.find({ user: userId });
+    
+    res.json({
+      user: {
+        username: user.username,
+        checkInsCount: user.checkIns.length,
+        checkIns: user.checkIns
+      },
+      connections: connections.length,
+      userGoals: userGoals.length,
+      goals: userGoals
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 export default router;

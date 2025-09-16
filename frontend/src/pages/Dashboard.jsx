@@ -4,6 +4,7 @@ import { ThemeContext } from "../context/ThemeContext.jsx";
 import { AuthContext } from "../context/AuthContext.jsx";
 import { dashboardAPI } from "../utils/api";
 import { useSnackbar } from "notistack";
+import { useSocket } from "../hooks/useSocket";
 import {
   Sun,
   Moon,
@@ -15,6 +16,7 @@ import {
   LogOut,
   Edit3,
   ChevronDown,
+  TrendingUp,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -33,6 +35,7 @@ const Dashboard = () => {
     user: {}
   });
   const [loading, setLoading] = useState(true);
+  const socket = useSocket();
 
   const handleLogout = () => {
     logout();
@@ -44,43 +47,40 @@ const Dashboard = () => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
+        console.log('Fetching dashboard data...');
+        console.log('User:', user);
+        console.log('Token:', localStorage.getItem('token'));
+        
+        // Check if user is logged in
+        if (!user || !localStorage.getItem('token')) {
+          console.log('User not logged in, skipping dashboard fetch');
+          setLoading(false);
+          return;
+        }
+        
         const response = await dashboardAPI.getStats();
+        console.log('Dashboard data received:', response.data);
+        console.log('Stats array:', response.data.stats);
+        console.log('Stats length:', response.data.stats?.length);
         setDashboardData(response.data);
       } catch (err) {
         console.error('Failed to fetch dashboard data:', err);
-        enqueueSnackbar('Failed to load dashboard data', { variant: 'error' });
-        // Fallback to dummy data if API fails
+        console.error('Error details:', err.response?.data || err.message);
+        
+        // Check if it's an authentication error
+        if (err.response?.status === 401) {
+          console.log('Authentication error - user not logged in');
+          enqueueSnackbar('Please log in to view dashboard', { variant: 'error' });
+          // Redirect to login or show login prompt
+          navigate('/login');
+        } else {
+          enqueueSnackbar('Failed to load dashboard data', { variant: 'error' });
+        }
+        
+        // Show error state instead of fallback data
+        console.log('Using error state - no fallback data');
         setDashboardData({
-          stats: [
-            {
-              icon: <Users />,
-              label: 'Active Partners',
-              value: '0',
-              sub: 'No partners yet',
-              color: '#3b82f6'
-            },
-            {
-              icon: <Calendar />,
-              label: 'Check-ins This Week',
-              value: '0',
-              sub: 'Start checking in!',
-              color: '#22c55e'
-            },
-            {
-              icon: <Activity />,
-              label: 'Current Streak',
-              value: '0 days',
-              sub: 'Start your streak!',
-              color: '#f97316'
-            },
-            {
-              icon: <Target />,
-              label: 'Goals Achieved',
-              value: '0/0',
-              sub: 'Create your first goal',
-              color: '#a855f7'
-            }
-          ],
+          stats: [],
           activities: [],
           goals: [],
           userGoals: [],
@@ -92,17 +92,62 @@ const Dashboard = () => {
     };
 
     fetchDashboardData();
-  }, [enqueueSnackbar]);
+  }, [enqueueSnackbar, user]);
+
+  // Real-time updates
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleDashboardUpdate = () => {
+      // Refresh dashboard data when user activity occurs
+      const fetchDashboardData = async () => {
+        try {
+          const response = await dashboardAPI.getStats();
+          setDashboardData(response.data);
+        } catch (err) {
+          console.error('Failed to refresh dashboard data:', err);
+        }
+      };
+      fetchDashboardData();
+    };
+
+    socket.on('leaderboard_activity', handleDashboardUpdate);
+    socket.on('user_activity', handleDashboardUpdate);
+
+    return () => {
+      socket.off('leaderboard_activity', handleDashboardUpdate);
+      socket.off('user_activity', handleDashboardUpdate);
+    };
+  }, [socket]);
 
   // Add icons to stats data
   const statsWithIcons = dashboardData.stats.map((stat, index) => ({
     ...stat,
-    icon: [<Users />, <Calendar />, <Activity />, <Target />][index] || <Activity />
+    icon: [<Users />, <Calendar />, <Activity />, <Target />, <TrendingUp />][index] || <Activity />
   }));
 
   const activities = dashboardData.activities || [];
   const goals = dashboardData.goals || [];
   const userGoals = dashboardData.userGoals || [];
+
+  // Show loading or login prompt if user is not authenticated
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-100 dark:bg-[#0f172a] transition-colors flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-4">
+            Please log in to view your dashboard
+          </h2>
+          <button
+            onClick={() => navigate('/login')}
+            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+          >
+            Go to Login
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-[#0f172a] transition-colors">
@@ -205,10 +250,10 @@ const Dashboard = () => {
         </motion.div>
 
         {/* Top Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
           {loading ? (
             // Loading skeleton
-            Array.from({ length: 4 }).map((_, idx) => (
+            Array.from({ length: 5 }).map((_, idx) => (
               <div key={idx} className="flex flex-col p-5 rounded-xl bg-white dark:bg-[#1e293b] shadow-md border border-gray-200 dark:border-gray-700 animate-pulse">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
@@ -220,10 +265,16 @@ const Dashboard = () => {
                 <div className="h-3 w-20 bg-gray-300 dark:bg-gray-600 rounded mt-2"></div>
               </div>
             ))
-          ) : (
+          ) : statsWithIcons.length > 0 ? (
             statsWithIcons.map((s, idx) => (
               <StatCard key={idx} {...s} />
             ))
+          ) : (
+            <div className="col-span-full text-center py-8 text-gray-500 dark:text-gray-400">
+              <Activity className="w-12 h-12 mx-auto mb-3 opacity-50" />
+              <p>Unable to load dashboard data</p>
+              <p className="text-sm">Please check your connection and try again</p>
+            </div>
           )}
         </div>
 
