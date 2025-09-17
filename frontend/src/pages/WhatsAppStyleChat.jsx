@@ -4,6 +4,7 @@ import { chatAPI, groupAPI, uploadAPI } from "../utils/api";
 import { AuthContext } from "../context/AuthContext";
 import { useSocket } from "../hooks/useSocket";
 import ErrorBoundary from "../components/ErrorBoundary";
+import { getAvatarSrc } from "../utils/avatarUtils";
 import EmojiPicker from 'emoji-picker-react';
 import { 
   Search, 
@@ -473,7 +474,7 @@ const WhatsAppStyleChat = () => {
                       {/* Avatar */}
                       <div className="relative">
                         <img
-                          src={conversation.avatar || `https://ui-avatars.com/api/?name=${conversation.name}&background=random`}
+                          src={getAvatarSrc(conversation.avatar, conversation.name)}
                           alt={conversation.name}
                           className="w-12 h-12 rounded-full object-cover"
                         />
@@ -536,7 +537,7 @@ const WhatsAppStyleChat = () => {
                   
                   <div className="relative">
                     <img
-                      src={selectedChat.avatar || `https://ui-avatars.com/api/?name=${selectedChat.name}&background=random`}
+                      src={getAvatarSrc(selectedChat.avatar, selectedChat.name)}
                       alt={selectedChat.name}
                       className="w-10 h-10 rounded-full object-cover cursor-pointer"
                       onClick={() => {
@@ -864,7 +865,7 @@ const WhatsAppStyleChat = () => {
                         }`}
                       >
                         <img
-                          src={user.avatar || `https://ui-avatars.com/api/?name=${user.username}&background=random`}
+                          src={getAvatarSrc(user.avatar, user.username)}
                           alt={user.username}
                           className="w-8 h-8 rounded-full object-cover"
                         />

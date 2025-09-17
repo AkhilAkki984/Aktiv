@@ -6,14 +6,9 @@ import { AuthContext } from "../context/AuthContext.jsx";
 import { useSnackbar } from "notistack";
 import { motion } from "framer-motion";
 import { ArrowRight, ArrowLeft, CheckCircle } from "lucide-react";
+import { getAllAvatars } from "../utils/avatarUtils";
 
-const avatars = [
-  "avatar1.png",
-  "avatar2.png",
-  "avatar3.png",
-  "avatar4.png",
-  "avatar5.png",
-];
+const avatars = getAllAvatars();
 
 const Onboarding = () => {
   const { register, handleSubmit, watch } = useForm();
@@ -102,21 +97,37 @@ const Onboarding = () => {
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="grid grid-cols-3 sm:grid-cols-5 gap-4 justify-items-center"
+              className="space-y-6"
             >
-              {avatars.map((av) => (
-                <img
-                  key={av}
-                  src={`/assets/${av}`}
-                  alt="avatar"
-                  onClick={() => setSelectedAvatar(av)}
-                  className={`w-20 h-20 rounded-full cursor-pointer border-4 transition ${
-                    selectedAvatar === av
-                      ? "border-indigo-600 scale-105"
-                      : "border-transparent hover:scale-105 hover:border-indigo-300"
-                  }`}
-                />
+              <div className="text-center">
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                  Choose Your Avatar
+                </h3>
+                <p className="text-gray-600 dark:text-gray-400">
+                  Select an avatar that represents you
+                </p>
+              </div>
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-4 justify-items-center">
+              {avatars.map((avatar) => (
+                <div key={avatar.name} className="relative">
+                  <img
+                    src={avatar.src}
+                    alt="avatar"
+                    onClick={() => setSelectedAvatar(avatar.name)}
+                    className={`w-20 h-20 rounded-full cursor-pointer border-4 transition ${
+                      selectedAvatar === avatar.name
+                        ? "border-indigo-600 scale-105"
+                        : "border-transparent hover:scale-105 hover:border-indigo-300"
+                    }`}
+                  />
+                  {selectedAvatar === avatar.name && (
+                    <div className="absolute -top-1 -right-1 w-6 h-6 bg-indigo-600 rounded-full flex items-center justify-center">
+                      <CheckCircle className="w-4 h-4 text-white" />
+                    </div>
+                  )}
+                </div>
               ))}
+              </div>
             </motion.div>
           )}
 
@@ -206,7 +217,13 @@ const Onboarding = () => {
             {step < steps.length - 1 ? (
               <button
                 type="button"
-                onClick={() => setStep(step + 1)}
+                onClick={() => {
+                  if (step === 0 && !selectedAvatar) {
+                    enqueueSnackbar("Please select an avatar", { variant: "warning" });
+                    return;
+                  }
+                  setStep(step + 1);
+                }}
                 className="flex items-center gap-2 ml-auto px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition"
               >
                 Next

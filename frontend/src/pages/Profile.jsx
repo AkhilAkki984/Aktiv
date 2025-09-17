@@ -12,6 +12,7 @@ import { userAPI } from '../utils/api';
 import { AuthContext } from '../context/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
+import { getAvatarSrc } from '../utils/avatarUtils';
 
 const Profile = () => {
   const { user, login } = useContext(AuthContext);
@@ -38,7 +39,7 @@ const Profile = () => {
       >
         {/* Profile Header */}
         <Avatar
-          src={`/assets/${user?.avatar}`}
+          src={getAvatarSrc(user?.avatar, user?.username)}
           sx={{ width: 120, height: 120, mx: 'auto', mb: 2 }}
         />
         <Typography variant="h5" fontWeight="bold">

@@ -3,6 +3,7 @@ import { useSnackbar } from "notistack";
 import { chatAPI, groupAPI, uploadAPI } from "../utils/api";
 import { AuthContext } from "../context/AuthContext";
 import ErrorBoundary from "../components/ErrorBoundary";
+import { getAvatarSrc } from "../utils/avatarUtils";
 import EmojiPicker from 'emoji-picker-react';
 import { 
   Search, 
@@ -399,7 +400,7 @@ const Chat = () => {
                 {/* Avatar */}
                 <div className="relative">
                   <img
-                    src={conversation.avatar || `https://ui-avatars.com/api/?name=${conversation.name}&background=random`}
+                    src={getAvatarSrc(conversation.avatar, conversation.name)}
                     alt={conversation.name}
                     className="w-12 h-12 rounded-full object-cover"
                   />
@@ -450,7 +451,7 @@ const Chat = () => {
             <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <img
-                  src={selectedChat.avatar || `https://ui-avatars.com/api/?name=${selectedChat.name}&background=random`}
+                  src={getAvatarSrc(selectedChat.avatar, selectedChat.name)}
                   alt={selectedChat.name}
                   className="w-10 h-10 rounded-full object-cover cursor-pointer"
                   onClick={() => {
@@ -531,13 +532,13 @@ const Chat = () => {
                     <div className={`flex items-end gap-2 max-w-xs lg:max-w-md ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`}>
                       {/* Avatar for received messages */}
                       {!isOwnMessage && showAvatar && (
-                        <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
-                          <img
-                            src={message.sender.avatar || `https://ui-avatars.com/api/?name=${message.sender.username}&background=random`}
-                            alt={message.sender.username}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
+                          <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
+                            <img
+                              src={getAvatarSrc(message.sender.avatar, message.sender.username)}
+                              alt={message.sender.username}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
                       )}
                       
                       {/* Spacer for alignment when no avatar */}
@@ -772,11 +773,11 @@ const Chat = () => {
                         selectedUsers.find(u => u._id === user._id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''
                       }`}
                     >
-                      <img
-                        src={user.avatar || `https://ui-avatars.com/api/?name=${user.username}&background=random`}
-                        alt={user.username}
-                        className="w-8 h-8 rounded-full object-cover"
-                      />
+                        <img
+                          src={getAvatarSrc(user.avatar, user.username)}
+                          alt={user.username}
+                          className="w-8 h-8 rounded-full object-cover"
+                        />
                       <span className="text-sm text-gray-900 dark:text-white">
                         {user.getFullName?.() || user.username}
                       </span>

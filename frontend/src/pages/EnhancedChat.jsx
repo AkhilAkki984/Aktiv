@@ -3,6 +3,7 @@ import { useSnackbar } from "notistack";
 import { chatAPI, groupAPI, uploadAPI } from "../utils/api";
 import { AuthContext } from "../context/AuthContext";
 import ErrorBoundary from "../components/ErrorBoundary";
+import { getAvatarSrc } from "../utils/avatarUtils";
 import EmojiPicker from 'emoji-picker-react';
 import { io } from 'socket.io-client';
 import { 
@@ -574,7 +575,7 @@ const EnhancedChat = () => {
                       {/* Avatar */}
                       <div className="relative">
                         <img
-                          src={conversation.avatar || `https://ui-avatars.com/api/?name=${conversation.name}&background=random`}
+                          src={getAvatarSrc(conversation.avatar, conversation.name)}
                           alt={conversation.name}
                           className="w-12 h-12 rounded-full object-cover"
                         />
@@ -637,7 +638,7 @@ const EnhancedChat = () => {
                   
                   <div className="relative">
                     <img
-                      src={selectedChat.avatar || `https://ui-avatars.com/api/?name=${selectedChat.name}&background=random`}
+                      src={getAvatarSrc(selectedChat.avatar, selectedChat.name)}
                       alt={selectedChat.name}
                       className="w-10 h-10 rounded-full object-cover cursor-pointer"
                       onClick={() => {
@@ -967,7 +968,7 @@ const EnhancedChat = () => {
                         }`}
                       >
                         <img
-                          src={user.avatar || `https://ui-avatars.com/api/?name=${user.username}&background=random`}
+                          src={getAvatarSrc(user.avatar, user.username)}
                           alt={user.username}
                           className="w-8 h-8 rounded-full object-cover"
                         />

@@ -4,6 +4,7 @@ import { ThemeContext } from "../context/ThemeContext.jsx";
 import { AuthContext } from "../context/AuthContext.jsx";
 import { partnersAPI } from "../utils/api.js";
 import { useSnackbar } from "notistack";
+import { getAvatarSrc } from "../utils/avatarUtils";
 import {
   Sun,
   Moon,
@@ -226,7 +227,7 @@ const UserProfile = () => {
             onClick={() => setMenuOpen(!menuOpen)}
           >
             <img
-              src={currentUser?.profilePic || "https://placehold.co/40x40"}
+              src={getAvatarSrc(currentUser?.avatar, currentUser?.username)}
               alt="profile"
               className="w-9 h-9 rounded-full border border-gray-300 dark:border-gray-600"
             />
@@ -274,17 +275,11 @@ const UserProfile = () => {
           <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
             {/* Avatar */}
             <div className="flex-shrink-0">
-              {profileUser.avatar ? (
-                <img
-                  src={profileUser.avatar}
-                  alt={profileUser.name}
-                  className="w-24 h-24 rounded-full object-cover border-4 border-gray-200 dark:border-gray-600"
-                />
-              ) : (
-                <div className="w-24 h-24 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-gray-600 dark:text-gray-300 font-bold text-2xl border-4 border-gray-200 dark:border-gray-600">
-                  {getInitials(profileUser.name)}
-                </div>
-              )}
+              <img
+                src={getAvatarSrc(profileUser.avatar, profileUser.name)}
+                alt={profileUser.name}
+                className="w-24 h-24 rounded-full object-cover border-4 border-gray-200 dark:border-gray-600"
+              />
             </div>
 
             {/* Profile Info */}

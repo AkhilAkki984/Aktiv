@@ -5,6 +5,7 @@ import { AuthContext } from "../context/AuthContext.jsx";
 import { dashboardAPI } from "../utils/api";
 import { useSnackbar } from "notistack";
 import { useSocket } from "../hooks/useSocket";
+import { getAvatarSrc } from "../utils/avatarUtils";
 import {
   Sun,
   Moon,
@@ -200,7 +201,7 @@ const Dashboard = () => {
             onClick={() => setMenuOpen(!menuOpen)}
           >
             <img
-                    src={user?.profilePic || "https://placehold.co/40x40"}
+                    src={getAvatarSrc(user?.avatar, user?.username)}
                     alt="profile"
                     className="w-9 h-9 rounded-full border border-gray-300 dark:border-gray-600"
             />

@@ -1,6 +1,7 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { MapPin, MessageCircle, UserPlus, Clock } from "lucide-react";
+import { getAvatarSrc } from "../utils/avatarUtils";
 
 const PartnerCard = ({ partner, onConnect, onCancelRequest, onProfileClick, index, tabType = "find" }) => {
   const getInitials = (name) => {
@@ -143,17 +144,11 @@ const PartnerCard = ({ partner, onConnect, onCancelRequest, onProfileClick, inde
           onClick={() => onProfileClick(partner._id)}
           className="cursor-pointer"
         >
-          {partner.avatar ? (
-            <img
-              src={partner.avatar}
-              alt={partner.name}
-              className="w-12 h-12 rounded-full object-cover border-2 border-gray-200 dark:border-gray-600"
-            />
-          ) : (
-            <div className="w-12 h-12 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-gray-600 dark:text-gray-300 font-semibold text-sm border-2 border-gray-200 dark:border-gray-600">
-              {getInitials(partner.name)}
-            </div>
-          )}
+          <img
+            src={getAvatarSrc(partner.avatar, partner.name)}
+            alt={partner.name}
+            className="w-12 h-12 rounded-full object-cover border-2 border-gray-200 dark:border-gray-600"
+          />
         </div>
         <div className="flex-1">
           <h3
