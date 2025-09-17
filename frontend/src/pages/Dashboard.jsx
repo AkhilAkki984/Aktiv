@@ -114,10 +114,12 @@ const Dashboard = () => {
 
     socket.on('leaderboard_activity', handleDashboardUpdate);
     socket.on('user_activity', handleDashboardUpdate);
+    socket.on('goal_completed', handleDashboardUpdate);
 
     return () => {
       socket.off('leaderboard_activity', handleDashboardUpdate);
       socket.off('user_activity', handleDashboardUpdate);
+      socket.off('goal_completed', handleDashboardUpdate);
     };
   }, [socket]);
 
@@ -282,7 +284,7 @@ const Dashboard = () => {
         {/* Recent Activity + Active Goals */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Recent Activity */}
-          <Card title="Recent Activity" linkText="View All">
+          <Card title="Recent Activity" linkText="View All" linkAction={() => navigate("/completed-goals")}>
             {loading ? (
               // Loading skeleton for activities
               Array.from({ length: 3 }).map((_, i) => (
@@ -295,15 +297,19 @@ const Dashboard = () => {
                 </div>
               ))
             ) : activities.length > 0 ? (
-              activities.map((a, i) => (
-                <div key={i} className="flex justify-between items-center p-3 rounded-lg bg-gray-50 dark:bg-[#0f172a]">
-                  <div>
-                    <p className="font-medium text-gray-800 dark:text-gray-100">{a.title}</p>
-                    <p className="text-sm text-gray-500">with {a.user} • {a.time}</p>
+              activities
+                .filter(a => a.status === 'completed')
+                .sort((a, b) => new Date(b.completedAt || b.time) - new Date(a.completedAt || a.time))
+                .slice(0, 4)
+                .map((a, i) => (
+                  <div key={i} className="flex justify-between items-center p-3 rounded-lg bg-gray-50 dark:bg-[#0f172a]">
+                    <div>
+                      <p className="font-medium text-gray-800 dark:text-gray-100">{a.title}</p>
+                      <p className="text-sm text-gray-500">with {a.user} • {a.time}</p>
+                    </div>
+                    <StatusBadge status={a.status} />
                   </div>
-                  <StatusBadge status={a.status} />
-                </div>
-              ))
+                ))
             ) : (
               <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                 <Activity className="w-12 h-12 mx-auto mb-3 opacity-50" />
@@ -326,7 +332,10 @@ const Dashboard = () => {
                 </div>
               ))
             ) : userGoals.length > 0 ? (
-              userGoals.slice(0, 4).map((goal, i) => (
+              userGoals
+                .filter(goal => goal.status !== 'completed')
+                .slice(0, 3)
+                .map((goal, i) => (
                 <div key={goal._id} className="mb-4 last:mb-0">
                   <div className="flex items-center justify-between mb-1">
                     <p className="font-medium text-gray-800 dark:text-gray-100">{goal.title}</p>
@@ -355,6 +364,50 @@ const Dashboard = () => {
                 <Target className="w-12 h-12 mx-auto mb-3 opacity-50" />
                 <p>No goals yet</p>
                 <p className="text-sm">Create your first goal to get started!</p>
+              </div>
+            )}
+          </Card>
+        </div>
+
+        {/* Active Partners Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
+          <Card title="Active Partners" linkText="View All" linkAction={() => navigate("/partners")}>
+            {loading ? (
+              // Loading skeleton for partners
+              Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 dark:bg-[#0f172a] animate-pulse">
+                  <div className="w-10 h-10 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
+                  <div className="flex-1">
+                    <div className="h-4 w-24 bg-gray-300 dark:bg-gray-600 rounded mb-1"></div>
+                    <div className="h-3 w-16 bg-gray-300 dark:bg-gray-600 rounded"></div>
+                  </div>
+                  <div className="h-6 w-16 bg-gray-300 dark:bg-gray-600 rounded"></div>
+                </div>
+              ))
+            ) : dashboardData.activePartners && dashboardData.activePartners.length > 0 ? (
+              dashboardData.activePartners.slice(0, 4).map((partner, i) => (
+                <div key={partner._id || i} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 dark:bg-[#0f172a] hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                  <img
+                    src={getAvatarSrc(partner.avatar, partner.name)}
+                    alt={partner.name}
+                    className="w-10 h-10 rounded-full object-cover"
+                  />
+                  <div className="flex-1">
+                    <p className="font-medium text-gray-800 dark:text-gray-100">{partner.name}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {partner.goalsCount || 0} shared goals • {partner.streak || 0} day streak
+                    </p>
+                  </div>
+                  <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                    Active
+                  </span>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                <p>No active partners yet</p>
+                <p className="text-sm">Connect with others to start your journey together!</p>
               </div>
             )}
           </Card>

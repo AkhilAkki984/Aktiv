@@ -19,6 +19,7 @@ import {
   Pause,
   Play,
   BarChart3,
+  Trash2,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import GoalForm from "../components/GoalForm.jsx";
@@ -111,10 +112,20 @@ const Goals = () => {
   const handleCheckIn = async (goalId) => {
     try {
       const response = await goalsAPI.checkIn(goalId, { notes: '' });
-      setGoals(goals.map(goal => 
-        goal._id === goalId ? response.data : goal
-      ));
-      enqueueSnackbar('Check-in successful!', { variant: 'success' });
+      const updatedGoal = response.data;
+      
+      // Check if goal is now 100% complete
+      const progressPercentage = getProgressPercentage(updatedGoal);
+      if (progressPercentage >= 100) {
+        // Auto-complete the goal
+        await handleCompleteGoal(goalId);
+      } else {
+        // Update the goal normally
+        setGoals(goals.map(goal => 
+          goal._id === goalId ? updatedGoal : goal
+        ));
+        enqueueSnackbar('Check-in successful!', { variant: 'success' });
+      }
     } catch (err) {
       console.error('Check-in error:', err);
       enqueueSnackbar(err.response?.data?.msg || 'Check-in failed', { variant: 'error' });
@@ -141,6 +152,30 @@ const Goals = () => {
     }
     setShowGoalForm(false);
     setEditingGoal(null);
+  };
+
+  const handleDeleteGoal = async (goalId) => {
+    if (window.confirm('Are you sure you want to delete this goal? This action cannot be undone.')) {
+      try {
+        await goalsAPI.deleteGoal(goalId);
+        setGoals(goals.filter(goal => goal._id !== goalId));
+        enqueueSnackbar('Goal deleted successfully', { variant: 'success' });
+      } catch (err) {
+        console.error('Delete goal error:', err);
+        enqueueSnackbar(err.response?.data?.msg || 'Failed to delete goal', { variant: 'error' });
+      }
+    }
+  };
+
+  const handleCompleteGoal = async (goalId) => {
+    try {
+      await goalsAPI.updateGoal(goalId, { status: 'completed', completedAt: new Date() });
+      setGoals(goals.filter(goal => goal._id !== goalId));
+      enqueueSnackbar('Goal completed successfully! 🎉', { variant: 'success' });
+    } catch (err) {
+      console.error('Complete goal error:', err);
+      enqueueSnackbar(err.response?.data?.msg || 'Failed to complete goal', { variant: 'error' });
+    }
   };
 
   const getStatusColor = (status) => {
@@ -306,6 +341,8 @@ const Goals = () => {
                   goal={goal}
                   onCheckIn={handleCheckIn}
                   onEdit={handleEditGoal}
+                  onDelete={handleDeleteGoal}
+                  onComplete={handleCompleteGoal}
                   getStatusColor={getStatusColor}
                   getProgressPercentage={getProgressPercentage}
                   getFrequencyText={getFrequencyText}
@@ -350,7 +387,7 @@ const Goals = () => {
 };
 
 // Goal Card Component
-const GoalCard = ({ goal, onCheckIn, onEdit, getStatusColor, getProgressPercentage, getFrequencyText }) => {
+const GoalCard = ({ goal, onCheckIn, onEdit, onDelete, onComplete, getStatusColor, getProgressPercentage, getFrequencyText }) => {
   const progressPercentage = getProgressPercentage(goal);
   const isCheckedInToday = goal.progress.lastCheckIn && 
     new Date(goal.progress.lastCheckIn).toDateString() === new Date().toDateString();
@@ -372,6 +409,13 @@ const GoalCard = ({ goal, onCheckIn, onEdit, getStatusColor, getProgressPercenta
             {goal.status.charAt(0).toUpperCase() + goal.status.slice(1)}
           </span>
         </div>
+        <button
+          onClick={() => onDelete(goal._id)}
+          className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+          title="Delete goal"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
       </div>
 
       {/* Progress */}

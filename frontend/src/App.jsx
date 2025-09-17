@@ -12,6 +12,7 @@ import Leaderboard from "./pages/Leaderboard";
 import Goals from "./pages/Goals";
 import FindPartners from "./pages/FindPartners";
 import UserProfile from "./pages/UserProfile";
+import CompletedGoals from "./pages/CompletedGoals";
 import Landing from "./pages/Landing";
 import LoginSignup from "./pages/LoginSignup";
 
@@ -113,6 +114,14 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <UserProfile />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/completed-goals"
+        element={
+          <PrivateRoute>
+            <CompletedGoals />
           </PrivateRoute>
         }
       />
