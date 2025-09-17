@@ -2,7 +2,7 @@ import React, { useContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ThemeContext } from "../context/ThemeContext.jsx";
 import { AuthContext } from "../context/AuthContext.jsx";
-import { dashboardAPI } from "../utils/api";
+import { dashboardAPI, goalsAPI } from "../utils/api";
 import { useSnackbar } from "notistack";
 import { useSocket } from "../hooks/useSocket";
 import { getAvatarSrc } from "../utils/avatarUtils";
@@ -18,6 +18,7 @@ import {
   Edit3,
   ChevronDown,
   TrendingUp,
+  CheckCircle,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -43,6 +44,41 @@ const Dashboard = () => {
     setMenuOpen(false);
   };
 
+  // Function to refresh dashboard data
+  const refreshDashboardData = async () => {
+    try {
+      const response = await dashboardAPI.getStats();
+      
+      // Fetch completed goals separately to ensure we have real data
+      try {
+        const goalsResponse = await goalsAPI.getGoals({ status: 'completed' });
+        const completedGoals = goalsResponse.data || [];
+        
+        // Transform completed goals into activities format
+        const completedActivities = completedGoals.map(goal => ({
+          _id: goal._id,
+          title: goal.title,
+          status: 'completed',
+          time: goal.completedAt ? new Date(goal.completedAt).toLocaleDateString() : new Date().toLocaleDateString(),
+          completedAt: goal.completedAt || new Date(),
+          category: goal.category,
+          progress: goal.progress
+        }));
+        
+        // Update dashboard data with real completed goals
+        const dashboardData = response.data;
+        dashboardData.activities = completedActivities;
+        setDashboardData(dashboardData);
+      } catch (goalsErr) {
+        console.error('Failed to fetch completed goals:', goalsErr);
+        // Fallback to original data
+        setDashboardData(response.data);
+      }
+    } catch (err) {
+      console.error('Failed to refresh dashboard data:', err);
+    }
+  };
+
   // Fetch dashboard data
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -63,7 +99,32 @@ const Dashboard = () => {
         console.log('Dashboard data received:', response.data);
         console.log('Stats array:', response.data.stats);
         console.log('Stats length:', response.data.stats?.length);
-        setDashboardData(response.data);
+        
+        // Fetch completed goals separately to ensure we have real data
+        try {
+          const goalsResponse = await goalsAPI.getGoals({ status: 'completed' });
+          const completedGoals = goalsResponse.data || [];
+          
+          // Transform completed goals into activities format
+          const completedActivities = completedGoals.map(goal => ({
+            _id: goal._id,
+            title: goal.title,
+            status: 'completed',
+            time: goal.completedAt ? new Date(goal.completedAt).toLocaleDateString() : new Date().toLocaleDateString(),
+            completedAt: goal.completedAt || new Date(),
+            category: goal.category,
+            progress: goal.progress
+          }));
+          
+          // Update dashboard data with real completed goals
+          const dashboardData = response.data;
+          dashboardData.activities = completedActivities;
+          setDashboardData(dashboardData);
+        } catch (goalsErr) {
+          console.error('Failed to fetch completed goals:', goalsErr);
+          // Fallback to original data
+          setDashboardData(response.data);
+        }
       } catch (err) {
         console.error('Failed to fetch dashboard data:', err);
         console.error('Error details:', err.response?.data || err.message);
@@ -95,21 +156,25 @@ const Dashboard = () => {
     fetchDashboardData();
   }, [enqueueSnackbar, user]);
 
+  // Listen for storage changes (when goals are completed in other tabs)
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === 'goal_completed' || e.key === 'dashboard_refresh') {
+        refreshDashboardData();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
   // Real-time updates
   useEffect(() => {
     if (!socket) return;
 
     const handleDashboardUpdate = () => {
       // Refresh dashboard data when user activity occurs
-      const fetchDashboardData = async () => {
-        try {
-          const response = await dashboardAPI.getStats();
-          setDashboardData(response.data);
-        } catch (err) {
-          console.error('Failed to refresh dashboard data:', err);
-        }
-      };
-      fetchDashboardData();
+      refreshDashboardData();
     };
 
     socket.on('leaderboard_activity', handleDashboardUpdate);
@@ -284,7 +349,12 @@ const Dashboard = () => {
         {/* Recent Activity + Active Goals */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Recent Activity */}
-          <Card title="Recent Activity" linkText="View All" linkAction={() => navigate("/completed-goals")}>
+          <Card 
+            title="Recent Completed Goals" 
+            linkText="View All" 
+            linkAction={() => navigate("/completed-goals")}
+            onRefresh={refreshDashboardData}
+          >
             {loading ? (
               // Loading skeleton for activities
               Array.from({ length: 3 }).map((_, i) => (
@@ -305,16 +375,19 @@ const Dashboard = () => {
                   <div key={i} className="flex justify-between items-center p-3 rounded-lg bg-gray-50 dark:bg-[#0f172a]">
                     <div>
                       <p className="font-medium text-gray-800 dark:text-gray-100">{a.title}</p>
-                      <p className="text-sm text-gray-500">with {a.user} • {a.time}</p>
+                      <p className="text-sm text-gray-500">Completed • {a.time}</p>
                     </div>
-                    <StatusBadge status={a.status} />
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                      <span className="text-xs text-green-600 dark:text-green-400 font-medium">Completed</span>
+                    </div>
                   </div>
                 ))
             ) : (
               <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                <Activity className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                <p>No recent activity yet</p>
-                <p className="text-sm">Start by checking in or creating goals!</p>
+                <CheckCircle className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                <p>No completed goals yet</p>
+                <p className="text-sm">Complete your first goal to see it here!</p>
               </div>
             )}
           </Card>
@@ -436,16 +509,27 @@ const StatCard = ({ icon, label, value, sub, color }) => (
   </div>
 );
 
-const Card = ({ title, linkText, linkAction, children }) => (
+const Card = ({ title, linkText, linkAction, onRefresh, children }) => (
   <div className="p-5 rounded-xl bg-white dark:bg-[#1e293b] shadow-md border border-gray-200 dark:border-gray-700">
     <div className="flex items-center justify-between mb-4">
       <h2 className="font-semibold text-gray-800 dark:text-gray-100">{title}</h2>
-      <button 
-        onClick={linkAction}
-        className="text-sm text-blue-500 hover:underline cursor-pointer"
-      >
-        {linkText}
-      </button>
+      <div className="flex items-center gap-2">
+        {onRefresh && (
+          <button 
+            onClick={onRefresh}
+            className="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
+            title="Refresh"
+          >
+            ↻
+          </button>
+        )}
+        <button 
+          onClick={linkAction}
+          className="text-sm text-blue-500 hover:underline cursor-pointer"
+        >
+          {linkText}
+        </button>
+      </div>
     </div>
     <div className="space-y-4">{children}</div>
   </div>

@@ -116,8 +116,11 @@ const Goals = () => {
       
       // Check if goal is now 100% complete
       const progressPercentage = getProgressPercentage(updatedGoal);
+      console.log('Progress percentage:', progressPercentage);
+      
       if (progressPercentage >= 100) {
         // Auto-complete the goal
+        console.log('Goal completed! Moving to completed status...');
         await handleCompleteGoal(goalId);
       } else {
         // Update the goal normally
@@ -170,8 +173,23 @@ const Goals = () => {
   const handleCompleteGoal = async (goalId) => {
     try {
       await goalsAPI.updateGoal(goalId, { status: 'completed', completedAt: new Date() });
+      // Remove the completed goal from the goals list
       setGoals(goals.filter(goal => goal._id !== goalId));
       enqueueSnackbar('Goal completed successfully! 🎉', { variant: 'success' });
+      
+      // Trigger dashboard refresh
+      localStorage.setItem('goal_completed', Date.now().toString());
+      localStorage.setItem('dashboard_refresh', Date.now().toString());
+      
+      // Refresh the goals list to ensure consistency
+      setTimeout(async () => {
+        try {
+          const response = await goalsAPI.getGoals();
+          setGoals(response.data.filter(goal => goal.status !== 'completed'));
+        } catch (err) {
+          console.error('Failed to refresh goals:', err);
+        }
+      }, 1000);
     } catch (err) {
       console.error('Complete goal error:', err);
       enqueueSnackbar(err.response?.data?.msg || 'Failed to complete goal', { variant: 'error' });
@@ -335,7 +353,9 @@ const Goals = () => {
           ) : (
             <>
               {/* Goal Cards */}
-              {goals.map((goal) => (
+              {goals
+                .filter(goal => goal.status !== 'completed')
+                .map((goal) => (
                 <GoalCard
                   key={goal._id}
                   goal={goal}
@@ -426,10 +446,26 @@ const GoalCard = ({ goal, onCheckIn, onEdit, onDelete, onComplete, getStatusColo
         </div>
         <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
           <div
-            className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+            className={`h-2 rounded-full transition-all duration-300 ${
+              progressPercentage >= 100 
+                ? 'bg-green-600' 
+                : progressPercentage >= 90 
+                ? 'bg-yellow-500' 
+                : 'bg-blue-600'
+            }`}
             style={{ width: `${progressPercentage}%` }}
           ></div>
         </div>
+        {progressPercentage >= 90 && progressPercentage < 100 && (
+          <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
+            Almost there! {100 - progressPercentage}% to completion
+          </p>
+        )}
+        {progressPercentage >= 100 && (
+          <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+            🎉 Goal completed!
+          </p>
+        )}
       </div>
 
       {/* Schedule */}
