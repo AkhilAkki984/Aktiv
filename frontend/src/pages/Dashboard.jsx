@@ -2,7 +2,7 @@ import React, { useContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ThemeContext } from "../context/ThemeContext.jsx";
 import { AuthContext } from "../context/AuthContext.jsx";
-import { dashboardAPI, goalsAPI } from "../utils/api";
+import { dashboardAPI, goalsAPI, partnersAPI } from "../utils/api";
 import { useSnackbar } from "notistack";
 import { useSocket } from "../hooks/useSocket";
 import { getAvatarSrc } from "../utils/avatarUtils";
@@ -49,15 +49,21 @@ const Dashboard = () => {
     try {
       const response = await dashboardAPI.getStats();
       
-      // Fetch completed goals and active goals separately to ensure we have real data
+      // Fetch completed goals, active goals, and partners separately to ensure we have real data
       try {
-        const [completedGoalsResponse, activeGoalsResponse] = await Promise.all([
+        const [completedGoalsResponse, activeGoalsResponse, partnersResponse] = await Promise.allSettled([
           goalsAPI.getGoals({ status: 'completed' }),
-          goalsAPI.getGoals({ status: 'active' })
+          goalsAPI.getGoals({ status: 'active' }),
+          partnersAPI.getPartners({ status: 'accepted' })
         ]);
         
-        const completedGoals = completedGoalsResponse.data || [];
-        const activeGoals = activeGoalsResponse.data || [];
+        const completedGoals = completedGoalsResponse.status === 'fulfilled' ? completedGoalsResponse.value.data || [] : [];
+        const activeGoals = activeGoalsResponse.status === 'fulfilled' ? activeGoalsResponse.value.data || [] : [];
+        const activePartners = partnersResponse.status === 'fulfilled' ? partnersResponse.value.data || [] : [];
+        
+        console.log('Partners API Response (Refresh):', partnersResponse);
+        console.log('Active Partners Data (Refresh):', activePartners);
+        console.log('Partners Count (Refresh):', activePartners.length);
         
         // Transform completed goals into activities format
         const completedActivities = completedGoals.map(goal => ({
@@ -74,6 +80,28 @@ const Dashboard = () => {
         const dashboardData = response.data;
         dashboardData.activities = completedActivities;
         dashboardData.userGoals = activeGoals;
+        dashboardData.activePartners = activePartners;
+        
+        // Update stats with real partner count from user profile
+        if (dashboardData.stats && dashboardData.stats.length > 0) {
+          // Find the Active Partners stat and update it
+          const partnersStatIndex = dashboardData.stats.findIndex(stat => 
+            stat.label && stat.label.toLowerCase().includes('partner')
+          );
+          if (partnersStatIndex !== -1) {
+            // Use user's connectionCount from profile data
+            const connectionCount = user?.connectionCount || 0;
+            dashboardData.stats[partnersStatIndex].value = connectionCount;
+            
+            // Update the sub text to show actual count
+            if (connectionCount > 0) {
+              dashboardData.stats[partnersStatIndex].sub = `${connectionCount} active connection${connectionCount > 1 ? 's' : ''}`;
+            } else {
+              dashboardData.stats[partnersStatIndex].sub = 'No partners yet';
+            }
+          }
+        }
+        
         setDashboardData(dashboardData);
       } catch (goalsErr) {
         console.error('Failed to fetch goals:', goalsErr);
@@ -106,15 +134,23 @@ const Dashboard = () => {
         console.log('Stats array:', response.data.stats);
         console.log('Stats length:', response.data.stats?.length);
         
-        // Fetch completed goals and active goals separately to ensure we have real data
+        // Fetch completed goals, active goals, and partners separately to ensure we have real data
         try {
-          const [completedGoalsResponse, activeGoalsResponse] = await Promise.all([
+          const [completedGoalsResponse, activeGoalsResponse, partnersResponse] = await Promise.allSettled([
             goalsAPI.getGoals({ status: 'completed' }),
-            goalsAPI.getGoals({ status: 'active' })
+            goalsAPI.getGoals({ status: 'active' }),
+            partnersAPI.getPartners({ status: 'accepted' })
           ]);
           
-          const completedGoals = completedGoalsResponse.data || [];
-          const activeGoals = activeGoalsResponse.data || [];
+          const completedGoals = completedGoalsResponse.status === 'fulfilled' ? completedGoalsResponse.value.data || [] : [];
+          const activeGoals = activeGoalsResponse.status === 'fulfilled' ? activeGoalsResponse.value.data || [] : [];
+          const activePartners = partnersResponse.status === 'fulfilled' ? partnersResponse.value.data || [] : [];
+          
+          console.log('User Profile:', user);
+          console.log('User Connection Count:', user?.connectionCount);
+          console.log('Partners API Response:', partnersResponse);
+          console.log('Active Partners Data:', activePartners);
+          console.log('Partners Count:', activePartners.length);
           
           // Transform completed goals into activities format
           const completedActivities = completedGoals.map(goal => ({
@@ -131,6 +167,28 @@ const Dashboard = () => {
           const dashboardData = response.data;
           dashboardData.activities = completedActivities;
           dashboardData.userGoals = activeGoals;
+          dashboardData.activePartners = activePartners;
+          
+          // Update stats with real partner count from user profile
+          if (dashboardData.stats && dashboardData.stats.length > 0) {
+            // Find the Active Partners stat and update it
+            const partnersStatIndex = dashboardData.stats.findIndex(stat => 
+              stat.label && stat.label.toLowerCase().includes('partner')
+            );
+            if (partnersStatIndex !== -1) {
+              // Use user's connectionCount from profile data
+              const connectionCount = user?.connectionCount || 0;
+              dashboardData.stats[partnersStatIndex].value = connectionCount;
+              
+              // Update the sub text to show actual count
+              if (connectionCount > 0) {
+                dashboardData.stats[partnersStatIndex].sub = `${connectionCount} active connection${connectionCount > 1 ? 's' : ''}`;
+              } else {
+                dashboardData.stats[partnersStatIndex].sub = 'No partners yet';
+              }
+            }
+          }
+          
           setDashboardData(dashboardData);
         } catch (goalsErr) {
           console.error('Failed to fetch goals:', goalsErr);
@@ -179,6 +237,30 @@ const Dashboard = () => {
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
+
+  // Update partner count when user data changes
+  useEffect(() => {
+    if (user?.connectionCount !== undefined && dashboardData.stats) {
+      const partnersStatIndex = dashboardData.stats.findIndex(stat => 
+        stat.label && stat.label.toLowerCase().includes('partner')
+      );
+      if (partnersStatIndex !== -1) {
+        const connectionCount = user.connectionCount || 0;
+        setDashboardData(prevData => {
+          const newData = { ...prevData };
+          if (newData.stats && newData.stats[partnersStatIndex]) {
+            newData.stats[partnersStatIndex].value = connectionCount;
+            if (connectionCount > 0) {
+              newData.stats[partnersStatIndex].sub = `${connectionCount} active connection${connectionCount > 1 ? 's' : ''}`;
+            } else {
+              newData.stats[partnersStatIndex].sub = 'No partners yet';
+            }
+          }
+          return newData;
+        });
+      }
+    }
+  }, [user?.connectionCount]);
 
   // Real-time updates
   useEffect(() => {
