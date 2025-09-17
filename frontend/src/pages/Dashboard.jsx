@@ -49,10 +49,15 @@ const Dashboard = () => {
     try {
       const response = await dashboardAPI.getStats();
       
-      // Fetch completed goals separately to ensure we have real data
+      // Fetch completed goals and active goals separately to ensure we have real data
       try {
-        const goalsResponse = await goalsAPI.getGoals({ status: 'completed' });
-        const completedGoals = goalsResponse.data || [];
+        const [completedGoalsResponse, activeGoalsResponse] = await Promise.all([
+          goalsAPI.getGoals({ status: 'completed' }),
+          goalsAPI.getGoals({ status: 'active' })
+        ]);
+        
+        const completedGoals = completedGoalsResponse.data || [];
+        const activeGoals = activeGoalsResponse.data || [];
         
         // Transform completed goals into activities format
         const completedActivities = completedGoals.map(goal => ({
@@ -65,12 +70,13 @@ const Dashboard = () => {
           progress: goal.progress
         }));
         
-        // Update dashboard data with real completed goals
+        // Update dashboard data with real data
         const dashboardData = response.data;
         dashboardData.activities = completedActivities;
+        dashboardData.userGoals = activeGoals;
         setDashboardData(dashboardData);
       } catch (goalsErr) {
-        console.error('Failed to fetch completed goals:', goalsErr);
+        console.error('Failed to fetch goals:', goalsErr);
         // Fallback to original data
         setDashboardData(response.data);
       }
@@ -100,10 +106,15 @@ const Dashboard = () => {
         console.log('Stats array:', response.data.stats);
         console.log('Stats length:', response.data.stats?.length);
         
-        // Fetch completed goals separately to ensure we have real data
+        // Fetch completed goals and active goals separately to ensure we have real data
         try {
-          const goalsResponse = await goalsAPI.getGoals({ status: 'completed' });
-          const completedGoals = goalsResponse.data || [];
+          const [completedGoalsResponse, activeGoalsResponse] = await Promise.all([
+            goalsAPI.getGoals({ status: 'completed' }),
+            goalsAPI.getGoals({ status: 'active' })
+          ]);
+          
+          const completedGoals = completedGoalsResponse.data || [];
+          const activeGoals = activeGoalsResponse.data || [];
           
           // Transform completed goals into activities format
           const completedActivities = completedGoals.map(goal => ({
@@ -116,12 +127,13 @@ const Dashboard = () => {
             progress: goal.progress
           }));
           
-          // Update dashboard data with real completed goals
+          // Update dashboard data with real data
           const dashboardData = response.data;
           dashboardData.activities = completedActivities;
+          dashboardData.userGoals = activeGoals;
           setDashboardData(dashboardData);
         } catch (goalsErr) {
-          console.error('Failed to fetch completed goals:', goalsErr);
+          console.error('Failed to fetch goals:', goalsErr);
           // Fallback to original data
           setDashboardData(response.data);
         }
@@ -370,7 +382,7 @@ const Dashboard = () => {
               activities
                 .filter(a => a.status === 'completed')
                 .sort((a, b) => new Date(b.completedAt || b.time) - new Date(a.completedAt || a.time))
-                .slice(0, 4)
+                .slice(0, 3)
                 .map((a, i) => (
                   <div key={i} className="flex justify-between items-center p-3 rounded-lg bg-gray-50 dark:bg-[#0f172a]">
                     <div>
@@ -393,7 +405,12 @@ const Dashboard = () => {
           </Card>
 
           {/* My Goals */}
-          <Card title="My Goals" linkText="View All" linkAction={() => navigate("/goals")}>
+          <Card 
+            title="My Goals" 
+            linkText="View All" 
+            linkAction={() => navigate("/goals")}
+            onRefresh={refreshDashboardData}
+          >
             {loading ? (
               // Loading skeleton for goals
               Array.from({ length: 3 }).map((_, i) => (
@@ -421,15 +438,20 @@ const Dashboard = () => {
                     </span>
                   </div>
                   <p className="text-sm text-gray-500 mb-2">
-                    {goal.completedCheckIns}/{goal.targetCheckIns} check-ins • {goal.currentStreak} day streak
+                    {goal.progress?.completedCheckIns || 0}/{goal.progress?.targetCheckIns || 0} check-ins • {goal.progress?.currentStreak || 0} day streak
                   </p>
                   <div className="w-full bg-gray-300 dark:bg-gray-700 h-2 rounded-full">
                     <div
                       className="h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${goal.progress}%`, backgroundColor: goal.color }}
+                      style={{ 
+                        width: `${goal.progress?.targetCheckIns > 0 ? Math.round((goal.progress.completedCheckIns / goal.progress.targetCheckIns) * 100) : 0}%`, 
+                        backgroundColor: goal.color || '#3b82f6' 
+                      }}
                     ></div>
                   </div>
-                  <p className="text-xs mt-1 text-gray-400">{goal.progress}%</p>
+                  <p className="text-xs mt-1 text-gray-400">
+                    {goal.progress?.targetCheckIns > 0 ? Math.round((goal.progress.completedCheckIns / goal.progress.targetCheckIns) * 100) : 0}%
+                  </p>
                 </div>
               ))
             ) : (
