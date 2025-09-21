@@ -1,6 +1,7 @@
 import { useState, useContext } from 'react';
 import { useSnackbar } from 'notistack';
 import { AuthContext } from '../context/AuthContext';
+import { getAvatarSrc } from '../utils/avatarUtils';
 import { 
   Heart, 
   MessageCircle, 
@@ -235,7 +236,7 @@ const PostCard = ({ post, onUpdate, socket }) => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img
-              src={post.user.avatar || `https://ui-avatars.com/api/?name=${post.user.username}&background=random`}
+              src={getAvatarSrc(post.user.avatar, post.user.username)}
               alt={post.user.username}
               className="w-10 h-10 rounded-full object-cover"
             />
@@ -401,7 +402,7 @@ const PostCard = ({ post, onUpdate, socket }) => {
                 {post.comments.map((comment, index) => (
                   <div key={index} className="flex items-start gap-3">
                     <img
-                      src={comment.user.avatar || `https://ui-avatars.com/api/?name=${comment.user.username}&background=random`}
+                      src={getAvatarSrc(comment.user.avatar, comment.user.username)}
                       alt={comment.user.username}
                       className="w-8 h-8 rounded-full object-cover"
                     />
@@ -426,7 +427,7 @@ const PostCard = ({ post, onUpdate, socket }) => {
             {/* Add comment */}
             <div className="flex items-center gap-3">
               <img
-                src={user.avatar || `https://ui-avatars.com/api/?name=${user.username}&background=random`}
+                src={getAvatarSrc(user.avatar, user.username)}
                 alt={user.username}
                 className="w-8 h-8 rounded-full object-cover"
               />

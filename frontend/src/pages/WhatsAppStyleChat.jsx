@@ -612,7 +612,7 @@ const WhatsAppStyleChat = () => {
                         {!isOwnMessage && showAvatar && (
                           <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
                             <img
-                              src={message.sender.avatar || `https://ui-avatars.com/api/?name=${message.sender.username}&background=random`}
+                              src={getAvatarSrc(message.sender.avatar, message.sender.username)}
                               alt={message.sender.username}
                               className="w-full h-full object-cover"
                             />

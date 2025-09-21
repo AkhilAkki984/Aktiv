@@ -20,6 +20,7 @@ import leaderboardRoutes from "./routes/leaderboard.js";
 import dashboardRoutes from "./routes/dashboard.js";
 import goalsRoutes from "./routes/goals.js";
 import postsRoutes from "./routes/posts.js";
+import aiCoachRoutes from "./routes/aiCoach.js";
 
 dotenv.config();
 
@@ -44,6 +45,7 @@ app.use("/api/leaderboard", leaderboardRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/goals", goalsRoutes);
 app.use("/api/posts", postsRoutes);
+app.use("/api/ai-coach", aiCoachRoutes);
 
 // Initialize Socket.IO
 const io = new Server(server, {

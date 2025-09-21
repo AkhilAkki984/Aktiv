@@ -4,6 +4,7 @@ import { ThemeContext } from "../context/ThemeContext.jsx";
 import { AuthContext } from "../context/AuthContext.jsx";
 import { goalsAPI } from "../utils/api.js";
 import { useSnackbar } from "notistack";
+import { getAvatarSrc } from "../utils/avatarUtils.js";
 import {
   Sun,
   Moon,
@@ -222,28 +223,28 @@ const Goals = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-[#0f172a] transition-colors">
+    <div className="min-h-screen bg-white transition-colors">
       {/* 🔹 Navbar */}
-      <header className="sticky top-0 z-50 flex items-center justify-between px-6 py-3 bg-white dark:bg-[#1e293b] shadow-md">
+      <header className="sticky top-0 z-50 flex items-center justify-between px-6 py-3 bg-white border-b border-gray-200 shadow-md">
         {/* Logo + Name */}
         <div
           onClick={() => navigate("/dashboard")}
           className="flex items-center gap-2 cursor-pointer"
         >
-          <div className="w-9 h-9 flex items-center justify-center rounded-full bg-blue-600 text-white font-bold">
+          <div className="w-9 h-9 flex items-center justify-center rounded-full font-bold text-white" style={{backgroundColor: '#0046ff'}}>
             A
           </div>
-          <span className="text-xl font-bold text-blue-600">Aktiv</span>
+          <span className="text-xl font-bold text-black">Aktiv</span>
         </div>
 
         {/* Nav Links */}
-        <nav className="hidden md:flex items-center gap-6 text-gray-700 dark:text-gray-200 font-medium">
-          <button onClick={() => navigate("/dashboard")} className="cursor-pointer">Dashboard</button>
-          <button onClick={() => navigate("/goals")} className="cursor-pointer text-blue-600 font-semibold">Goals</button>
-          <button onClick={() => navigate("/find-partners")} className="cursor-pointer">Find Partners</button>
-          <button onClick={() => navigate("/chat/samplePartnerId")} className="cursor-pointer">Chat</button>
-          <button onClick={() => navigate("/feed")} className="cursor-pointer">Feed</button>
-          <button onClick={() => navigate("/leaderboard")} className="cursor-pointer">Leaderboard</button>
+        <nav className="hidden md:flex items-center gap-6 font-medium">
+          <button onClick={() => navigate("/dashboard")} className="cursor-pointer text-gray-600 hover:text-black transition-colors">Dashboard</button>
+          <button onClick={() => navigate("/goals")} className="cursor-pointer font-semibold transition-colors" style={{color: '#0046ff'}}>Goals</button>
+          <button onClick={() => navigate("/find-partners")} className="cursor-pointer text-gray-600 hover:text-black transition-colors">Find Partners</button>
+          <button onClick={() => navigate("/chat/samplePartnerId")} className="cursor-pointer text-gray-600 hover:text-black transition-colors">Chat</button>
+          <button onClick={() => navigate("/feed")} className="cursor-pointer text-gray-600 hover:text-black transition-colors">Feed</button>
+          <button onClick={() => navigate("/leaderboard")} className="cursor-pointer text-gray-600 hover:text-black transition-colors">Leaderboard</button>
         </nav>
 
         {/* Right Side */}
@@ -272,7 +273,7 @@ const Goals = () => {
             onClick={() => setMenuOpen(!menuOpen)}
           >
             <img
-              src={user?.profilePic || "https://placehold.co/40x40"}
+              src={getAvatarSrc(user?.avatar, user?.username)}
               alt="profile"
               className="w-9 h-9 rounded-full border border-gray-300 dark:border-gray-600"
             />
@@ -318,16 +319,17 @@ const Goals = () => {
           className="flex items-center justify-between mb-8"
         >
           <div>
-            <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-2">
+            <h1 className="text-3xl font-bold text-black mb-2">
               My Goals
             </h1>
-            <p className="text-gray-600 dark:text-gray-400">
+            <p className="text-gray-600">
               Track your progress and stay consistent.
             </p>
           </div>
           <button
             onClick={handleCreateGoal}
-            className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            className="flex items-center gap-2 px-6 py-3 rounded-lg transition-colors font-medium text-white"
+            style={{backgroundColor: '#0046ff'}}
           >
             <Plus className="w-5 h-5" />
             Create New Goal

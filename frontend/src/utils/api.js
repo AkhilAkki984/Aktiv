@@ -145,4 +145,10 @@ export const partnersAPI = {
   getPartnerCounts: () => api.get("/partners/count"),
 };
 
+// ✅ AI Coach APIs
+export const aiCoachAPI = {
+  chat: (data) => api.post("/ai-coach/chat", data),
+  getSuggestions: () => api.get("/ai-coach/suggestions"),
+};
+
 export default api;

@@ -6,6 +6,9 @@ import { dashboardAPI, goalsAPI, partnersAPI } from "../utils/api";
 import { useSnackbar } from "notistack";
 import { useSocket } from "../hooks/useSocket";
 import { getAvatarSrc } from "../utils/avatarUtils";
+import AICoachPopup from "../components/AICoachPopup";
+import AICoachChat from "../components/AICoachChat";
+import AICoachButton from "../components/AICoachButton";
 import {
   Sun,
   Moon,
@@ -38,10 +41,33 @@ const Dashboard = () => {
   });
   const [loading, setLoading] = useState(true);
   const socket = useSocket();
+  
+  // AI Coach state
+  const [showAICoachPopup, setShowAICoachPopup] = useState(false);
+  const [showAICoachChat, setShowAICoachChat] = useState(false);
+  const [hasSeenAICoach, setHasSeenAICoach] = useState(false);
 
   const handleLogout = () => {
     logout();
     setMenuOpen(false);
+  };
+
+  // AI Coach handlers
+  const handleAICoachClose = () => {
+    setShowAICoachPopup(false);
+    localStorage.setItem('hasSeenAICoachPopup', 'true');
+  };
+
+  const handleAICoachOpen = () => {
+    setShowAICoachChat(true);
+  };
+
+  const handleAICoachChatClose = () => {
+    setShowAICoachChat(false);
+  };
+
+  const handleAICoachMinimize = () => {
+    setShowAICoachChat(false);
   };
 
   // Function to refresh dashboard data
@@ -112,6 +138,15 @@ const Dashboard = () => {
       console.error('Failed to refresh dashboard data:', err);
     }
   };
+
+  // Show AI Coach popup on first login
+  useEffect(() => {
+    const hasSeenPopup = localStorage.getItem('hasSeenAICoachPopup');
+    if (!hasSeenPopup && user) {
+      setShowAICoachPopup(true);
+      setHasSeenAICoach(true);
+    }
+  }, [user]);
 
   // Fetch dashboard data
   useEffect(() => {
@@ -312,28 +347,28 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-[#0f172a] transition-colors">
+    <div className="min-h-screen bg-white transition-colors">
       {/* 🔹 Navbar */}
-      <header className="sticky top-0 z-50 flex items-center justify-between px-6 py-3 bg-white dark:bg-[#1e293b] shadow-md">
+      <header className="sticky top-0 z-50 flex items-center justify-between px-6 py-3 bg-white border-b border-gray-200 shadow-md">
         {/* Logo + Name */}
         <div
           onClick={() => navigate("/dashboard")}
           className="flex items-center gap-2 cursor-pointer"
         >
-          <div className="w-9 h-9 flex items-center justify-center rounded-full bg-blue-600 text-white font-bold">
+          <div className="w-9 h-9 flex items-center justify-center rounded-full font-bold text-white" style={{backgroundColor: '#0046ff'}}>
             A
           </div>
-          <span className="text-xl font-bold text-blue-600">Aktiv</span>
+          <span className="text-xl font-bold text-black">Aktiv</span>
         </div>
 
         {/* Nav Links */}
-        <nav className="hidden md:flex items-center gap-6 text-gray-700 dark:text-gray-200 font-medium">
-          <button onClick={() => navigate("/dashboard")} className="cursor-pointer">Dashboard</button>
-          <button onClick={() => navigate("/goals")} className="cursor-pointer">Goals</button>
-          <button onClick={() => navigate("/find-partners")} className="cursor-pointer">Find Partners</button>
-          <button onClick={() => navigate("/chat/samplePartnerId")} className="cursor-pointer">Chat</button>
-          <button onClick={() => navigate("/feed")} className="cursor-pointer">Feed</button>
-          <button onClick={() => navigate("/leaderboard")} className="cursor-pointer">Leaderboard</button>
+        <nav className="hidden md:flex items-center gap-6 font-medium">
+          <button onClick={() => navigate("/dashboard")} className="cursor-pointer text-gray-600 hover:text-black transition-colors">Dashboard</button>
+          <button onClick={() => navigate("/goals")} className="cursor-pointer text-gray-600 hover:text-black transition-colors">Goals</button>
+          <button onClick={() => navigate("/find-partners")} className="cursor-pointer text-gray-600 hover:text-black transition-colors">Find Partners</button>
+          <button onClick={() => navigate("/chat/samplePartnerId")} className="cursor-pointer text-gray-600 hover:text-black transition-colors">Chat</button>
+          <button onClick={() => navigate("/feed")} className="cursor-pointer text-gray-600 hover:text-black transition-colors">Feed</button>
+          <button onClick={() => navigate("/leaderboard")} className="cursor-pointer text-gray-600 hover:text-black transition-colors">Leaderboard</button>
         </nav>
 
         {/* Right Side */}
@@ -341,19 +376,19 @@ const Dashboard = () => {
           {/* Theme toggle */}
           <button
             onClick={toggleMode}
-            className="p-2 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition cursor-pointer"
+            className="p-2 rounded-full bg-white hover:bg-gray-100 border border-gray-200 transition cursor-pointer"
           >
             {mode === "light" ? (
-              <Moon className="w-5 h-5 text-gray-800" />
+              <Moon className="w-5 h-5 text-gray-600" />
             ) : (
-              <Sun className="w-5 h-5 text-yellow-400" />
+              <Sun className="w-5 h-5 text-gray-600" />
             )}
           </button>
 
           {/* Notifications */}
           <div className="relative cursor-pointer">
-            <Bell className="w-6 h-6 text-gray-600 dark:text-gray-300" />
-            <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-red-500"></span>
+            <Bell className="w-6 h-6 text-gray-600" />
+            <span className="absolute top-0 right-0 h-2 w-2 rounded-full" style={{backgroundColor: '#0046ff'}}></span>
           </div>
 
           {/* Profile Dropdown */}
@@ -367,29 +402,29 @@ const Dashboard = () => {
                     className="w-9 h-9 rounded-full border border-gray-300 dark:border-gray-600"
             />
 
-            <span className="hidden sm:block font-medium text-gray-800 dark:text-gray-100">
+            <span className="hidden sm:block font-medium text-black">
               {user?.username || "Guest User"}
             </span>
-            <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-300" />
+            <ChevronDown className="w-4 h-4 text-gray-600" />
           </div>
 
           {/* Dropdown Menu */}
           {menuOpen && (
-            <div className="absolute right-0 top-14 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-2">
+            <div className="absolute right-0 top-14 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-2">
               <button
                 onClick={() => {
                   navigate("/profile");
                   setMenuOpen(false);
                 }}
-                className="flex items-center gap-2 w-full px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                className="flex items-center gap-2 w-full px-4 py-2 text-gray-600 hover:bg-gray-100 cursor-pointer"
               >
                 <Edit3 className="w-4 h-4" />
                 Edit Profile
               </button>
-              <hr className="border-gray-200 dark:border-gray-700 my-1" />
+              <hr className="border-gray-200 my-1" />
               <button
                 onClick={handleLogout}
-                className="flex items-center gap-2 w-full px-4 py-2 text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                className="flex items-center gap-2 w-full px-4 py-2 text-gray-600 hover:bg-gray-100 cursor-pointer"
               >
                 <LogOut className="w-4 h-4" />
                 Logout
@@ -406,7 +441,7 @@ const Dashboard = () => {
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="text-2xl font-bold text-gray-800 dark:text-white"
+          className="text-2xl font-bold text-black"
         >
           Welcome back, {user?.username || "Guest"} 👋
         </motion.div>
@@ -416,15 +451,15 @@ const Dashboard = () => {
           {loading ? (
             // Loading skeleton
             Array.from({ length: 5 }).map((_, idx) => (
-              <div key={idx} className="flex flex-col p-5 rounded-xl bg-white dark:bg-[#1e293b] shadow-md border border-gray-200 dark:border-gray-700 animate-pulse">
+              <div key={idx} className="flex flex-col p-5 rounded-xl bg-white shadow-md border border-gray-200 animate-pulse">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
+                  <div className="w-12 h-12 bg-gray-200 rounded-full"></div>
                   <div>
-                    <div className="h-6 w-16 bg-gray-300 dark:bg-gray-600 rounded mb-2"></div>
-                    <div className="h-4 w-24 bg-gray-300 dark:bg-gray-600 rounded"></div>
+                    <div className="h-6 w-16 bg-gray-200 rounded mb-2"></div>
+                    <div className="h-4 w-24 bg-gray-200 rounded"></div>
                   </div>
                 </div>
-                <div className="h-3 w-20 bg-gray-300 dark:bg-gray-600 rounded mt-2"></div>
+                <div className="h-3 w-20 bg-gray-200 rounded mt-2"></div>
               </div>
             ))
           ) : statsWithIcons.length > 0 ? (
@@ -590,38 +625,63 @@ const Dashboard = () => {
           </Card>
         </div>
       </main>
+
+      {/* AI Coach Components */}
+      {showAICoachPopup && (
+        <AICoachPopup
+          user={user}
+          onClose={handleAICoachClose}
+          onOpenChat={handleAICoachOpen}
+        />
+      )}
+
+      {showAICoachChat && (
+        <AICoachChat
+          user={user}
+          isOpen={showAICoachChat}
+          onClose={handleAICoachChatClose}
+          onMinimize={handleAICoachMinimize}
+        />
+      )}
+
+      {!showAICoachChat && (
+        <AICoachButton
+          onClick={handleAICoachOpen}
+          hasUnreadMessages={false}
+        />
+      )}
     </div>
   );
 };
 
 /* 🔹 Reusable Components */
 const StatCard = ({ icon, label, value, sub, color }) => (
-  <div className="flex flex-col p-5 rounded-xl bg-white dark:bg-[#1e293b] shadow-md border border-gray-200 dark:border-gray-700 cursor-pointer hover:shadow-lg transition">
+  <div className="flex flex-col p-5 rounded-xl bg-white shadow-md border border-gray-200 cursor-pointer hover:shadow-lg hover:bg-gray-50 transition">
     <div className="flex items-center gap-3">
       <span
         className="p-3 rounded-full text-white"
-        style={{ backgroundColor: color }}
+        style={{ backgroundColor: color || '#0046ff' }}
       >
         {icon}
       </span>
       <div>
-        <p className="text-xl font-bold text-gray-800 dark:text-gray-100">{value}</p>
-        <p className="text-sm text-gray-500 dark:text-gray-400">{label}</p>
+        <p className="text-xl font-bold text-black">{value}</p>
+        <p className="text-sm text-gray-600">{label}</p>
       </div>
     </div>
-    {sub && <span className="text-xs mt-2" style={{ color }}>{sub}</span>}
+    {sub && <span className="text-xs mt-2 text-gray-600">{sub}</span>}
   </div>
 );
 
 const Card = ({ title, linkText, linkAction, onRefresh, children }) => (
-  <div className="p-5 rounded-xl bg-white dark:bg-[#1e293b] shadow-md border border-gray-200 dark:border-gray-700">
+  <div className="p-5 rounded-xl bg-white shadow-md border border-gray-200">
     <div className="flex items-center justify-between mb-4">
-      <h2 className="font-semibold text-gray-800 dark:text-gray-100">{title}</h2>
+      <h2 className="font-semibold text-black">{title}</h2>
       <div className="flex items-center gap-2">
         {onRefresh && (
           <button 
             onClick={onRefresh}
-            className="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
+            className="text-sm text-gray-600 hover:text-black cursor-pointer"
             title="Refresh"
           >
             ↻
@@ -629,7 +689,8 @@ const Card = ({ title, linkText, linkAction, onRefresh, children }) => (
         )}
         <button 
           onClick={linkAction}
-          className="text-sm text-blue-500 hover:underline cursor-pointer"
+          className="text-sm hover:underline cursor-pointer"
+          style={{color: '#0046ff'}}
         >
           {linkText}
         </button>
@@ -640,13 +701,8 @@ const Card = ({ title, linkText, linkAction, onRefresh, children }) => (
 );
 
 const StatusBadge = ({ status }) => {
-  const colors = {
-    completed: "text-green-500",
-    achieved: "text-purple-500",
-    new: "text-blue-500",
-  };
   return (
-    <span className={`text-xs font-medium ${colors[status] || "text-gray-400"}`}>
+    <span className="text-xs font-medium" style={{color: '#0046ff'}}>
       {status}
     </span>
   );

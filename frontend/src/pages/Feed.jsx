@@ -4,6 +4,7 @@ import { AuthContext } from '../context/AuthContext';
 import { useSocket } from '../hooks/useSocket';
 import PostComposer from '../components/PostComposer';
 import PostCard from '../components/PostCard';
+import { getAvatarSrc } from '../utils/avatarUtils';
 import { 
   Filter, 
   RefreshCw,

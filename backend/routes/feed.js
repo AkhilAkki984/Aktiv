@@ -8,9 +8,9 @@ const router = express.Router();
 router.get("/", auth, async (req, res) => {
   try {
     const posts = await Feed.find()
-      .populate("user", "username profilePic")
+      .populate("user", "username avatar")
       .populate("likes", "username")
-      .populate("comments.user", "username profilePic")
+      .populate("comments.user", "username avatar")
       .sort({ createdAt: -1 });
     res.json(posts);
   } catch (err) {

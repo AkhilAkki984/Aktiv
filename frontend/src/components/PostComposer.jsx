@@ -1,6 +1,7 @@
 import { useState, useRef, useContext } from 'react';
 import { useSnackbar } from 'notistack';
 import { AuthContext } from '../context/AuthContext';
+import { getAvatarSrc } from '../utils/avatarUtils';
 import { 
   Image, 
   Video, 
@@ -147,7 +148,7 @@ const PostComposer = ({ onPostCreated, socket }) => {
         {/* User info and category selector */}
         <div className="flex items-center gap-3 mb-4">
           <img
-            src={user.avatar || `https://ui-avatars.com/api/?name=${user.username}&background=random`}
+            src={getAvatarSrc(user.avatar, user.username)}
             alt={user.username}
             className="w-10 h-10 rounded-full object-cover"
           />
