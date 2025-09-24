@@ -102,19 +102,36 @@ const PostCard = ({ post, onUpdate, socket }) => {
 
       const data = await response.json();
       
+      // Ensure the comment has the correct user data
+      const updatedComments = data.comments.map(comment => {
+        if (comment.user._id === user._id || comment.user._id === user.id) {
+          return {
+            ...comment,
+            user: {
+              ...comment.user,
+              avatar: user.avatar,
+              firstName: user.firstName,
+              lastName: user.lastName,
+              username: user.username
+            }
+          };
+        }
+        return comment;
+      });
+      
       // Emit socket event
       if (socket) {
         socket.emit('post_commented', {
           postId: post._id,
           commentCount: data.commentCount,
-          comment: data.comments[data.comments.length - 1],
+          comment: updatedComments[updatedComments.length - 1],
           userId: user.id
         });
       }
 
-      // Update local state
+      // Update local state with corrected user data
       if (onUpdate) {
-        onUpdate(post._id, { comments: data.comments, commentCount: data.commentCount });
+        onUpdate(post._id, { comments: updatedComments, commentCount: data.commentCount });
       }
 
       setCommentText('');
@@ -359,45 +376,45 @@ const PostCard = ({ post, onUpdate, socket }) => {
 
         {/* Actions */}
         <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4">
             <button
               onClick={handleLike}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+              className={`flex items-center gap-1.5 px-2 py-1.5 rounded-full transition-all duration-200 ${
                 isLiked 
-                  ? 'bg-red-100 text-red-600 dark:bg-red-900/20' 
-                  : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400'
+                  ? 'text-red-500 hover:text-red-600' 
+                  : 'text-gray-500 hover:text-red-500 dark:text-gray-400 dark:hover:text-red-400'
               }`}
             >
-              <Heart size={20} className={isLiked ? 'fill-current' : ''} />
-              <span className="text-sm">{post.likeCount || 0}</span>
+              <Heart size={18} className={isLiked ? 'fill-current' : ''} />
+              <span className="text-sm font-medium">{post.likeCount || 0}</span>
             </button>
 
             <button
               onClick={() => setShowComments(!showComments)}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-colors"
+              className="flex items-center gap-1.5 px-2 py-1.5 rounded-full text-gray-500 hover:text-blue-500 dark:text-gray-400 dark:hover:text-blue-400 transition-all duration-200"
             >
-              <MessageCircle size={20} />
-              <span className="text-sm">{post.commentCount || 0}</span>
+              <MessageCircle size={18} />
+              <span className="text-sm font-medium">{post.commentCount || 0}</span>
             </button>
 
             <button
               onClick={() => setShowShareModal(true)}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-colors"
+              className="flex items-center gap-1.5 px-2 py-1.5 rounded-full text-gray-500 hover:text-green-500 dark:text-gray-400 dark:hover:text-green-400 transition-all duration-200"
             >
-              <Share2 size={20} />
-              <span className="text-sm">{post.shareCount || 0}</span>
+              <Share2 size={18} />
+              <span className="text-sm font-medium">{post.shareCount || 0}</span>
             </button>
 
             <button
               onClick={handleCongratulate}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+              className={`flex items-center gap-1.5 px-2 py-1.5 rounded-full transition-all duration-200 ${
                 isCongratulated 
-                  ? 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/20' 
-                  : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400'
+                  ? 'text-yellow-500 hover:text-yellow-600' 
+                  : 'text-gray-500 hover:text-yellow-500 dark:text-gray-400 dark:hover:text-yellow-400'
               }`}
             >
-              <PartyPopper size={20} className={isCongratulated ? 'fill-current' : ''} />
-              <span className="text-sm">{post.congratulationsCount || 0}</span>
+              <PartyPopper size={18} className={isCongratulated ? 'fill-current' : ''} />
+              <span className="text-sm font-medium">{post.congratulationsCount || 0}</span>
             </button>
           </div>
         </div>

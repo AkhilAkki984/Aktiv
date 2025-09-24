@@ -379,10 +379,18 @@ router.delete('/:id', auth, async (req, res) => {
       return res.status(403).json({ msg: 'Not authorized to delete this post' });
     }
 
-    // Delete media from Cloudinary if exists
-    if (post.mediaUrl) {
-      const publicId = post.mediaUrl.split('/').pop().split('.')[0];
-      await cloudinaryV2.uploader.destroy(`community-feed/${publicId}`);
+    // Delete media from Cloudinary if exists and API key is configured
+    if (post.mediaUrl && process.env.CLOUDINARY_API_KEY) {
+      try {
+        const publicId = post.mediaUrl.split('/').pop().split('.')[0];
+        await cloudinaryV2.uploader.destroy(`community-feed/${publicId}`);
+        console.log('Media deleted from Cloudinary:', publicId);
+      } catch (cloudinaryError) {
+        console.warn('Failed to delete from Cloudinary (continuing with post deletion):', cloudinaryError.message);
+        // Continue with post deletion even if Cloudinary deletion fails
+      }
+    } else if (post.mediaUrl) {
+      console.log('Cloudinary API key not configured, skipping media deletion');
     }
 
     await Post.findByIdAndDelete(req.params.id);
