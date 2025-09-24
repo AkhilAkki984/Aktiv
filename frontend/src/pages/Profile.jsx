@@ -7,7 +7,6 @@ import { postsAPI, dashboardAPI } from '../utils/api';
 import BackButton from '../components/BackButton';
 import { 
   Settings, 
-  Plus, 
   Grid3X3, 
   MessageSquare, 
   MapPin, 
@@ -227,67 +226,90 @@ const Profile = () => {
         <BackButton />
       </div>
 
-        {/* Header Section */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-8 mb-6">
-          <div className="text-center">
-            {/* Circular Profile Picture */}
-            <div className="relative inline-block mb-6">
+        {/* Header Section - Instagram Style */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
+          <div className="flex items-start gap-6">
+            {/* Left Side - Avatar */}
+            <div className="flex-shrink-0">
               <img
           src={getAvatarSrc(user?.avatar, user?.username)}
                 alt={user?.username}
-                className="w-32 h-32 rounded-full object-cover border-4 border-white dark:border-gray-700 shadow-lg"
+                className="w-24 h-24 rounded-full object-cover"
               />
-              <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-green-500 rounded-full border-4 border-white dark:border-gray-800 flex items-center justify-center">
-                <Trophy className="w-4 h-4 text-white" />
-              </div>
             </div>
 
-            {/* Username and Bio */}
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-              {user?.firstName} {user?.lastName}
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">
-              @{user?.username}
-            </p>
-            <p className="text-gray-700 dark:text-gray-300 max-w-md mx-auto mb-6">
-              {user?.bio || 'Fitness enthusiast on a journey to better health and wellness. Join me in achieving our goals together! 💪'}
-            </p>
-
-            {/* Edit Profile Button + Settings */}
-            <div className="flex items-center justify-center gap-3 mb-8">
-              <button
+            {/* Right Side - Profile Info */}
+            <div className="flex-1">
+              {/* Username and Edit Button */}
+              <div className="flex items-center gap-4 mb-4">
+                <h1 className="text-xl font-normal text-gray-900 dark:text-white">
+          {user?.username}
+                </h1>
+                <button
           onClick={() => navigate('/onboarding')}
-                className="px-6 py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors font-medium cursor-pointer"
-        >
-          Edit Profile
-              </button>
-              <button
-                onClick={() => navigate('/settings')}
-                className="p-2 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors cursor-pointer"
-              >
-                <Settings size={20} />
-              </button>
-            </div>
+                  className="px-4 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium cursor-pointer"
+                >
+                  Edit profile
+                </button>
+                <button
+                  onClick={() => navigate('/feed')}
+                  className="px-4 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium cursor-pointer"
+                >
+                  Create Post
+                </button>
+              </div>
 
-            {/* Stats Row */}
-            <div className="grid grid-cols-3 gap-8 max-w-md mx-auto">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {userStats.postsCount}
+              {/* Stats Row */}
+              <div className="flex gap-8 mb-4">
+                <div className="text-center">
+                  <div className="text-lg font-semibold text-gray-900 dark:text-white">
+                    {userStats.postsCount}
+                  </div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">posts</div>
                 </div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">Posts</div>
+                <div className="text-center">
+                  <div className="text-lg font-semibold text-gray-900 dark:text-white">
+                    {userStats.connectionsCount}
+                  </div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">connections</div>
+                </div>
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {userStats.connectionsCount}
-                </div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">Connections</div>
+
+              {/* Full Name */}
+              <div className="mb-2">
+                <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
+                  {user?.firstName} {user?.lastName}
+                </h2>
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {userStats.mentionsCount}
+
+              {/* About Section - Above Bio */}
+              <div className="mb-3">
+                <div className="grid grid-cols-2 gap-4 text-xs">
+                  <div className="flex items-center gap-2">
+                    <Target className="w-4 h-4 text-blue-600" />
+                    <span className="text-gray-600 dark:text-gray-400">
+                      {user?.goals?.length > 0 ? user.goals.slice(0, 2).join(', ') : 'No goals set'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-green-600" />
+                    <span className="text-gray-600 dark:text-gray-400">
+                      {formatLocation(user?.location)}
+                    </span>
+                  </div>
                 </div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">Mentions</div>
+              </div>
+
+              {/* Bio */}
+              <div className="mb-2">
+                <p className="text-sm text-gray-900 dark:text-white">
+                  {user?.bio || 'Fitness enthusiast on a journey to better health and wellness. Join me in achieving our goals together! 💪'}
+                </p>
+              </div>
+
+              {/* Username Display */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600 dark:text-gray-400">@{user?.username}</span>
               </div>
             </div>
           </div>
@@ -378,13 +400,6 @@ const Profile = () => {
                             </span>
                           </div>
 
-                          {/* Timestamp Overlay */}
-                          <div className="absolute top-3 left-3 mt-8">
-                            <span className="text-xs text-white bg-black/50 px-2 py-1 rounded-full backdrop-blur-sm">
-                              {formatTime(post.createdAt)}
-                            </span>
-                          </div>
-
                           {/* Hover Overlay with Stats */}
                           <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
                             <div className="text-white text-center">
@@ -466,167 +481,149 @@ const Profile = () => {
           </div>
         </div>
 
-        {/* Middle Section - Create Post CTA */}
-        <div className="text-center mb-6">
-          <button
-            onClick={() => navigate('/feed')}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-green-600 text-white rounded-full hover:from-blue-700 hover:to-green-700 transition-all duration-200 shadow-lg hover:shadow-xl cursor-pointer"
-          >
-            <Plus size={20} />
-            Create New Post
-          </button>
-        </div>
-
-        {/* Bottom Section - User Details Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Goals Card */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <Target className="w-6 h-6 text-blue-600" />
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Goals</h3>
-            </div>
-            <div className="space-y-2">
-              {user?.goals?.length > 0 ? (
-                user.goals.map((goal, index) => (
-                  <div key={index} className="text-sm text-gray-600 dark:text-gray-400">
-                    • {goal}
-                  </div>
-                ))
-              ) : (
-                <p className="text-gray-500 dark:text-gray-400 text-sm">No goals set yet</p>
-              )}
-            </div>
-          </div>
-
-          {/* Preferences Card */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <Heart className="w-6 h-6 text-red-600" />
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Preferences</h3>
-            </div>
-            <div className="space-y-2">
-              {user?.preferences?.length > 0 ? (
-                user.preferences.map((pref, index) => (
-                  <div key={index} className="text-sm text-gray-600 dark:text-gray-400">
-                    • {pref}
-                  </div>
-                ))
-              ) : (
-                <p className="text-gray-500 dark:text-gray-400 text-sm">No preferences set</p>
-              )}
-            </div>
-          </div>
-
-          {/* Location Card */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <MapPin className="w-6 h-6 text-green-600" />
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Location</h3>
-            </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              {formatLocation(user?.location)}
-            </p>
-          </div>
-
-          {/* Connections Card */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <Users className="w-6 h-6 text-purple-600" />
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Connections</h3>
-            </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-              {userStats.connectionsCount} fitness partners
-            </p>
-            <button
-              onClick={() => navigate('/partners')}
-              className="text-sm text-blue-600 hover:text-blue-700 transition-colors cursor-pointer"
-            >
-              View all connections →
-            </button>
-          </div>
-        </div>
       </div>
 
-      {/* Post Modal */}
+      {/* Post Modal - Instagram Style */}
       {showPostModal && selectedPost && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-              <div className="flex items-center gap-3">
-                <img
-                  src={getAvatarSrc(user?.avatar, user?.username)}
-                  alt={user?.username}
-                  className="w-10 h-10 rounded-full object-cover"
-                />
-                <div>
-                  <h3 className="font-semibold text-gray-900 dark:text-white">
-                    {user?.firstName} {user?.lastName}
-                  </h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {formatTime(selectedPost.createdAt)}
-                  </p>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex">
+            {/* Left Side - Image */}
+            <div className="flex-1 bg-black flex items-center justify-center">
+              {selectedPost.mediaUrl ? (
+                selectedPost.mediaType === 'image' ? (
+                  <img
+                    src={selectedPost.mediaUrl}
+                    alt="Post media"
+                    className="max-h-[90vh] w-full object-contain"
+                  />
+                ) : (
+                  <video
+                    src={selectedPost.mediaUrl}
+                    controls
+                    className="max-h-[90vh] w-full object-contain"
+                    preload="metadata"
+                  />
+                )
+              ) : (
+                <div className="text-white text-center">
+                  <Grid3X3 size={48} className="mx-auto mb-4" />
+                  <p>No media available</p>
                 </div>
-              </div>
-              <button
-                onClick={() => setShowPostModal(false)}
-                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors cursor-pointer"
-              >
-                <X size={24} />
-              </button>
+              )}
             </div>
 
-            {/* Modal Content */}
-            <div className="p-6 max-h-[calc(90vh-120px)] overflow-y-auto">
-              {/* Category Badge */}
-              <div className="mb-4">
-                <span className={`text-sm px-3 py-1 rounded-full border ${categoryColors[selectedPost.category] || categoryColors['General']}`}>
-                  {selectedPost.category}
-                </span>
+            {/* Right Side - Comments and Details */}
+            <div className="w-96 bg-white dark:bg-gray-800 flex flex-col">
+              {/* Header */}
+              <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex items-center gap-3">
+                  <img
+                    src={getAvatarSrc(user?.avatar, user?.username)}
+                    alt={user?.username}
+                    className="w-8 h-8 rounded-full object-cover"
+                  />
+                  <div>
+                    <h3 className="font-semibold text-gray-900 dark:text-white text-sm">
+                      {user?.username}
+                    </h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {formatTime(selectedPost.createdAt)}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowPostModal(false)}
+                  className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors cursor-pointer"
+                >
+                  <X size={20} />
+                </button>
               </div>
 
-              {/* Post Text */}
-              {selectedPost.text && (
-                <div className="mb-6">
-                  <p className="text-gray-900 dark:text-white text-lg leading-relaxed whitespace-pre-wrap">
-                    {selectedPost.text}
-                  </p>
+              {/* Post Content */}
+              <div className="flex-1 overflow-y-auto p-4">
+                {/* Category Badge */}
+                <div className="mb-3">
+                  <span className={`text-xs px-2 py-1 rounded-full border ${categoryColors[selectedPost.category] || categoryColors['General']}`}>
+                    {selectedPost.category}
+                  </span>
                 </div>
-              )}
 
-              {/* Media */}
-              {selectedPost.mediaUrl && (
-                <div className="mb-6">
-                  {selectedPost.mediaType === 'image' ? (
-                    <img
-                      src={selectedPost.mediaUrl}
-                      alt="Post media"
-                      className="w-full max-h-96 object-contain rounded-lg bg-gray-50 dark:bg-gray-900"
-                    />
+                {/* Post Text */}
+                {selectedPost.text && (
+                  <div className="mb-4">
+                    <p className="text-gray-900 dark:text-white text-sm leading-relaxed whitespace-pre-wrap">
+                      {selectedPost.text}
+                    </p>
+                  </div>
+                )}
+
+                {/* Comments Section */}
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Comments</h4>
+                  
+                  {/* Real Comments */}
+                  {selectedPost.comments && selectedPost.comments.length > 0 ? (
+                    <div className="space-y-2">
+                      {selectedPost.comments.map((comment, index) => (
+                        <div key={index} className="flex items-start gap-2">
+                          <img
+                            src={getAvatarSrc(comment.user?.avatar, comment.user?.username)}
+                            alt={comment.user?.username}
+                            className="w-6 h-6 rounded-full object-cover"
+                          />
+                          <div className="flex-1">
+                            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-2">
+                              <p className="text-sm text-gray-900 dark:text-white">
+                                <span className="font-semibold">{comment.user?.username}</span> {comment.text}
+                              </p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                {formatTime(comment.createdAt)}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   ) : (
-                    <video
-                      src={selectedPost.mediaUrl}
-                      controls
-                      className="w-full max-h-96 rounded-lg bg-gray-50 dark:bg-gray-900"
-                      preload="metadata"
-                    />
+                    <div className="text-center py-4">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">No comments yet</p>
+                    </div>
                   )}
                 </div>
-              )}
+              </div>
 
-              {/* Post Stats */}
-              <div className="flex items-center gap-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-                <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                  <Heart size={20} />
-                  <span className="text-sm font-medium">{selectedPost.likeCount || 0}</span>
+              {/* Bottom Actions */}
+              <div className="border-t border-gray-200 dark:border-gray-700 p-4">
+                {/* Action Buttons */}
+                <div className="flex items-center gap-4 mb-3">
+                  <button className="flex items-center gap-1 text-gray-600 dark:text-gray-400 hover:text-red-500 transition-colors">
+                    <Heart size={20} />
+                    <span className="text-sm">{selectedPost.likeCount || 0}</span>
+                  </button>
+                  <button className="flex items-center gap-1 text-gray-600 dark:text-gray-400 hover:text-blue-500 transition-colors">
+                    <MessageSquare size={20} />
+                    <span className="text-sm">{selectedPost.commentCount || 0}</span>
+                  </button>
+                  <button className="text-gray-600 dark:text-gray-400 hover:text-blue-500 transition-colors">
+                    <Eye size={20} />
+                  </button>
                 </div>
-                <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                  <MessageSquare size={20} />
-                  <span className="text-sm font-medium">{selectedPost.commentCount || 0}</span>
-                </div>
-                <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                  <Eye size={20} />
-                  <span className="text-sm font-medium">View</span>
+
+                {/* Add Comment */}
+                <div className="flex items-center gap-2">
+                  <img
+                    src={getAvatarSrc(user?.avatar, user?.username)}
+                    alt={user?.username}
+                    className="w-6 h-6 rounded-full object-cover"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Add a comment..."
+                    className="flex-1 px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  />
+                  <button className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm">
+                    Post
+                  </button>
                 </div>
               </div>
             </div>
