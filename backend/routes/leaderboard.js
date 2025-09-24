@@ -2,8 +2,7 @@ import express from "express";
 import auth from "../middleware/auth.js";
 import User from "../models/User.js";
 import Connection from "../models/Connection.js";
-import CheckIn from "../models/CheckIn.js";
-import Goal from "../models/Goal.js";
+import { UserGoal } from "../models/Goal.js";
 
 const router = express.Router();
 
@@ -58,56 +57,53 @@ const calculateUserMetrics = async (userId, metric, dateRange) => {
   const user = await User.findById(userId);
   if (!user) return 0;
 
+  console.log(`Calculating ${metric} for user ${userId}`);
+
   switch (metric) {
     case 'goals':
-      const goals = await Goal.find({ 
-        userId, 
-        status: 'COMPLETED'
+      const completedGoals = await UserGoal.find({ 
+        user: userId, 
+        status: 'completed'
       });
-      return goals.length;
+      console.log(`Found ${completedGoals.length} completed goals for user ${userId}`);
+      return completedGoals.length;
     
     case 'streak':
-      const checkIns = await CheckIn.find({ 
-        userId
-      }).sort({ createdAt: -1 });
-      
-      if (checkIns.length === 0) return 0;
-      
-      let streak = 0;
-      let currentDate = new Date();
-      currentDate.setHours(0, 0, 0, 0);
-      
-      // Check if user has checked in today
-      const todayCheckIn = checkIns.find(checkIn => {
-        const checkInDate = new Date(checkIn.createdAt);
-        checkInDate.setHours(0, 0, 0, 0);
-        return checkInDate.getTime() === currentDate.getTime();
+      // Get all user goals to calculate total streak
+      const userGoals = await UserGoal.find({ 
+        user: userId,
+        status: { $in: ['active', 'completed'] }
       });
       
-      if (!todayCheckIn) {
-        // If no check-in today, start from yesterday
-        currentDate.setDate(currentDate.getDate() - 1);
-      }
+      if (userGoals.length === 0) return 0;
       
-      // Count consecutive days
-      for (let i = 0; i < checkIns.length; i++) {
-        const checkInDate = new Date(checkIns[i].createdAt);
-        checkInDate.setHours(0, 0, 0, 0);
-        
-        if (checkInDate.getTime() === currentDate.getTime()) {
-          streak++;
-          currentDate.setDate(currentDate.getDate() - 1);
-        } else {
-          break;
+      // Calculate the maximum streak across all goals
+      let maxStreak = 0;
+      for (const goal of userGoals) {
+        if (goal.progress && goal.progress.currentStreak) {
+          maxStreak = Math.max(maxStreak, goal.progress.currentStreak);
         }
       }
-      return streak;
+      
+      console.log(`User ${userId} has max streak: ${maxStreak}`);
+      return maxStreak;
     
     case 'checkins':
-      const checkInsCount = await CheckIn.countDocuments({ 
-        userId
+      // Get all user goals and sum up all check-ins
+      const allUserGoals = await UserGoal.find({ 
+        user: userId,
+        status: { $in: ['active', 'completed'] }
       });
-      return checkInsCount;
+      
+      let totalCheckIns = 0;
+      for (const goal of allUserGoals) {
+        if (goal.progress && goal.progress.completedCheckIns) {
+          totalCheckIns += goal.progress.completedCheckIns;
+        }
+      }
+      
+      console.log(`User ${userId} has total check-ins: ${totalCheckIns}`);
+      return totalCheckIns;
     
     default:
       return 0;
@@ -145,6 +141,7 @@ const getAchievementBadges = (user, metric, value) => {
 // Get leaderboard with enhanced filtering and metrics
 router.get("/", auth, async (req, res) => {
   try {
+    console.log('Leaderboard request received:', req.query);
     const { 
       metric = 'streak', 
       filter = 'thisWeek', 
@@ -167,11 +164,19 @@ router.get("/", auth, async (req, res) => {
     if (partnersOnly === 'true') {
       partnerIds = await getUserPartners(req.user.id);
       partnerIds.push(req.user.id); // Include current user
+      console.log('Partner IDs:', partnerIds);
     }
 
     // Get all users to calculate metrics
     const query = partnersOnly === 'true' ? { _id: { $in: partnerIds } } : {};
-    const allUsers = await User.find(query).select('username firstName lastName avatar score checkIns');
+    let allUsers = await User.find(query).select('username firstName lastName avatar score');
+    console.log('Found users:', allUsers.length);
+    
+    // If no partners found, include current user and some other users for demo
+    if (allUsers.length === 0 || (partnersOnly === 'true' && allUsers.length === 1)) {
+      console.log('No partners found, including more users for demo');
+      allUsers = await User.find().select('username firstName lastName avatar score').limit(10);
+    }
 
     // Calculate metrics for all users
     const usersWithMetrics = await Promise.all(
@@ -179,14 +184,15 @@ router.get("/", auth, async (req, res) => {
         const metricValue = await calculateUserMetrics(user._id, metric, dateRange);
         const badges = getAchievementBadges(user, metric, metricValue);
         
-        // Add rank change for each user (mock data)
+        // Add rank change for each user (mock data for now)
         const userRankChange = Math.floor(Math.random() * 5) - 2; // -2 to +2
+        
+        console.log(`User ${user.username}: ${metric} = ${metricValue}`);
         
         return {
           ...user.toObject(),
           metricValue,
           badges,
-          checkInsCount: user.checkIns.length,
           rankChange: userRankChange
         };
       })
@@ -252,6 +258,51 @@ router.get("/rank-history/:userId", auth, async (req, res) => {
     res.json({ history });
   } catch (err) {
     console.error('Rank history error:', err);
+    res.status(500).json({ msg: "Server error" });
+  }
+});
+
+// Debug endpoint to check user data
+router.get("/debug/:userId", auth, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    // Get user goals
+    const userGoals = await UserGoal.find({ user: userId });
+    
+    // Calculate metrics manually
+    const completedGoals = userGoals.filter(goal => goal.status === 'completed').length;
+    
+    let maxStreak = 0;
+    let totalCheckIns = 0;
+    
+    for (const goal of userGoals) {
+      if (goal.progress) {
+        if (goal.progress.currentStreak) {
+          maxStreak = Math.max(maxStreak, goal.progress.currentStreak);
+        }
+        if (goal.progress.completedCheckIns) {
+          totalCheckIns += goal.progress.completedCheckIns;
+        }
+      }
+    }
+    
+    res.json({
+      userId,
+      userGoals: userGoals.length,
+      completedGoals,
+      maxStreak,
+      totalCheckIns,
+      goals: userGoals.map(goal => ({
+        title: goal.title,
+        status: goal.status,
+        currentStreak: goal.progress?.currentStreak || 0,
+        completedCheckIns: goal.progress?.completedCheckIns || 0,
+        checkIns: goal.checkIns?.length || 0
+      }))
+    });
+  } catch (err) {
+    console.error('Debug error:', err);
     res.status(500).json({ msg: "Server error" });
   }
 });

@@ -6,7 +6,9 @@ dotenv.config();
 
 const connectDB = async () => {
   try {
-    await mongoose.connect(process.env.MONGO_URI);
+    const mongoURI = process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb://localhost:27017/aktiv';
+    console.log('Connecting to MongoDB with URI:', mongoURI.replace(/\/\/.*@/, '//***:***@')); // Hide credentials in logs
+    await mongoose.connect(mongoURI);
     console.log('MongoDB connected ✅');
   } catch (err) {
     console.error('MongoDB connection failed:', err.message);

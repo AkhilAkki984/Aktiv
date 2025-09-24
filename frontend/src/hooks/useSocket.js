@@ -10,12 +10,19 @@ export const useSocket = () => {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    if (!token) return;
+    if (!token) {
+      console.log('No token found, skipping socket connection');
+      return;
+    }
+
+    console.log('Initializing socket connection with token:', token ? 'Present' : 'Missing');
 
     // Initialize socket connection
     const newSocket = io('http://localhost:5000', {
       auth: { token },
-      transports: ['websocket', 'polling']
+      transports: ['websocket', 'polling'],
+      timeout: 20000,
+      forceNew: true
     });
 
     socketRef.current = newSocket;
@@ -33,6 +40,23 @@ export const useSocket = () => {
 
     newSocket.on('connect_error', (error) => {
       console.error('Socket connection error:', error);
+      console.error('Error details:', {
+        message: error.message,
+        type: error.type,
+        description: error.description
+      });
+      setIsConnected(false);
+    });
+
+    newSocket.on('error', (error) => {
+      console.error('Socket error:', error);
+    });
+
+    // Handle authentication errors specifically
+    newSocket.on('auth_error', (error) => {
+      console.error('Authentication error:', error);
+      // Clear invalid token
+      localStorage.removeItem('token');
       setIsConnected(false);
     });
 
@@ -68,7 +92,9 @@ export const useSocket = () => {
 
     // Cleanup on unmount
     return () => {
-      newSocket.disconnect();
+      if (newSocket) {
+        newSocket.disconnect();
+      }
       setSocket(null);
       setIsConnected(false);
     };

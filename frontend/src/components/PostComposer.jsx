@@ -2,6 +2,7 @@ import { useState, useRef, useContext } from 'react';
 import { useSnackbar } from 'notistack';
 import { AuthContext } from '../context/AuthContext';
 import { getAvatarSrc } from '../utils/avatarUtils';
+import { postsAPI } from '../utils/api';
 import { 
   Image, 
   Video, 
@@ -97,25 +98,26 @@ const PostComposer = ({ onPostCreated, socket }) => {
       setIsUploading(true);
       
       const formData = new FormData();
-      formData.append('text', text);
+      formData.append('text', text || '');
       formData.append('category', category);
       if (mediaFile) {
         formData.append('media', mediaFile);
       }
 
-      const response = await fetch('/api/posts', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: formData
+      console.log('Creating post with:', { 
+        text: text || '(empty)', 
+        category, 
+        hasMedia: !!mediaFile,
+        mediaType: mediaFile?.type || 'none'
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to create post');
+      
+      // Debug FormData contents
+      console.log('FormData contents:');
+      for (let [key, value] of formData.entries()) {
+        console.log(`${key}:`, value instanceof File ? `${value.name} (${value.type})` : value);
       }
-
-      const newPost = await response.json();
+      const response = await postsAPI.createPost(formData);
+      const newPost = response.data;
       
       // Emit socket event for real-time updates
       if (socket) {

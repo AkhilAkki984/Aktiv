@@ -6,12 +6,21 @@ import auth from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Configure Cloudinary
-cloudinaryV2.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
-});
+// Configure Cloudinary (with fallback for missing credentials)
+const cloudinaryConfigured = process.env.CLOUDINARY_CLOUD_NAME && 
+                            process.env.CLOUDINARY_API_KEY && 
+                            process.env.CLOUDINARY_API_SECRET;
+
+if (cloudinaryConfigured) {
+  cloudinaryV2.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
+  });
+  console.log('✅ Cloudinary configured successfully');
+} else {
+  console.log('⚠️ Cloudinary not configured - media uploads will use local storage fallback');
+}
 
 // Configure multer for memory storage
 const storage = multer.memoryStorage();
@@ -21,9 +30,18 @@ const upload = multer({
     fileSize: 50 * 1024 * 1024 // 50MB limit
   },
   fileFilter: (req, file, cb) => {
+    console.log('Multer fileFilter - received file:', {
+      fieldname: file.fieldname,
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      size: file.size
+    });
+    
     if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
+      console.log('✅ File accepted by multer');
       cb(null, true);
     } else {
+      console.log('❌ File rejected by multer - invalid type:', file.mimetype);
       cb(new Error('Only image and video files are allowed!'), false);
     }
   }
@@ -33,47 +51,115 @@ const upload = multer({
 // @desc    Create a new post
 // @access  Private
 router.post('/', auth, upload.single('media'), async (req, res) => {
+  // Handle multer errors
+  if (req.fileValidationError) {
+    console.log('❌ Multer validation error:', req.fileValidationError);
+    return res.status(400).json({ msg: req.fileValidationError });
+  }
   try {
     const { text, category } = req.body;
     const userId = req.user.id;
+    
+    console.log('Creating post with data:', {
+      text: text || '(empty)',
+      category: category || '(missing)',
+      hasFile: !!req.file,
+      fileType: req.file?.mimetype || 'none',
+      userId: userId
+    });
 
-    if (!text || !category) {
-      return res.status(400).json({ msg: 'Text and category are required' });
+    if (!category) {
+      return res.status(400).json({ msg: 'Category is required' });
+    }
+    
+    // Allow posts with either text content or media
+    if (!text && !req.file) {
+      return res.status(400).json({ msg: 'Post must contain either text content or media' });
     }
 
     let mediaUrl = null;
     let mediaType = null;
 
-    // Upload media to Cloudinary if provided
+    // Upload media if provided
     if (req.file) {
-      const result = await new Promise((resolve, reject) => {
-        const uploadStream = cloudinaryV2.uploader.upload_stream(
-          {
-            resource_type: req.file.mimetype.startsWith('video/') ? 'video' : 'image',
-            folder: 'community-feed'
-          },
-          (error, result) => {
-            if (error) reject(error);
-            else resolve(result);
-          }
-        );
-        uploadStream.end(req.file.buffer);
-      });
+      if (cloudinaryConfigured) {
+        // Use Cloudinary for uploads
+        try {
+          const result = await new Promise((resolve, reject) => {
+            const uploadStream = cloudinaryV2.uploader.upload_stream(
+              {
+                resource_type: req.file.mimetype.startsWith('video/') ? 'video' : 'image',
+                folder: 'community-feed'
+              },
+              (error, result) => {
+                if (error) reject(error);
+                else resolve(result);
+              }
+            );
+            uploadStream.end(req.file.buffer);
+          });
 
-      mediaUrl = result.secure_url;
-      mediaType = req.file.mimetype.startsWith('video/') ? 'video' : 'image';
+          mediaUrl = result.secure_url;
+          mediaType = req.file.mimetype.startsWith('video/') ? 'video' : 'image';
+        } catch (error) {
+          console.error('Cloudinary upload failed:', error);
+          return res.status(500).json({ msg: 'Media upload failed' });
+        }
+      } else {
+        // Use local storage fallback
+        try {
+          const fs = await import('fs');
+          const path = await import('path');
+          
+          // Create uploads directory if it doesn't exist
+          const uploadsDir = path.join(process.cwd(), 'uploads', 'feed_media');
+          if (!fs.existsSync(uploadsDir)) {
+            fs.mkdirSync(uploadsDir, { recursive: true });
+          }
+          
+          // Generate unique filename
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+          const filename = `feed_media_${uniqueSuffix}_${req.file.originalname}`;
+          const filepath = path.join(uploadsDir, filename);
+          
+          // Save file to local storage
+          fs.writeFileSync(filepath, req.file.buffer);
+          
+          // Create URL for local file
+          const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
+          mediaUrl = `${baseUrl}/uploads/feed_media/${filename}`;
+          mediaType = req.file.mimetype.startsWith('video/') ? 'video' : 'image';
+          
+          console.log('✅ Media saved locally:', filename);
+        } catch (error) {
+          console.error('Local upload failed:', error);
+          return res.status(500).json({ msg: 'Media upload failed' });
+        }
+      }
     }
 
-    const post = new Post({
+    console.log('Creating post object:', {
       user: userId,
-      text,
+      text: text || '(empty)',
       mediaUrl,
       mediaType,
       category
     });
 
+    const post = new Post({
+      user: userId,
+      text: text || '',
+      mediaUrl,
+      mediaType,
+      category
+    });
+
+    console.log('Post object created, saving to database...');
     await post.save();
+    console.log('Post saved successfully, populating user data...');
+    
     await post.populate('user', 'username firstName lastName avatar');
+    console.log('✅ Post created and populated successfully');
 
     res.status(201).json(post);
   } catch (error) {
@@ -97,6 +183,8 @@ router.get('/', auth, async (req, res) => {
       query.category = category;
     }
 
+    console.log('Fetching posts with query:', query, 'page:', page, 'limit:', limit);
+    
     const posts = await Post.find(query)
       .populate('user', 'username firstName lastName avatar')
       .populate('originalPost')
@@ -107,6 +195,8 @@ router.get('/', auth, async (req, res) => {
 
     const totalPosts = await Post.countDocuments(query);
     const totalPages = Math.ceil(totalPosts / limit);
+    
+    console.log('Found posts:', posts.length, 'total:', totalPosts);
 
     res.json({
       posts,

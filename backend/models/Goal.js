@@ -78,9 +78,17 @@ userGoalSchema.pre('save', function(next) {
   
   // Calculate target check-ins based on duration and frequency
   if (this.duration.type && this.schedule.frequency) {
-    const startDate = new Date(this.duration.startDate);
-    const endDate = this.duration.endDate || new Date();
-    const daysDiff = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+    let daysDiff = 0;
+    
+    // Handle custom duration with customDays
+    if (this.duration.type === 'custom' && this.duration.customDays) {
+      daysDiff = this.duration.customDays;
+    } else {
+      // Calculate days from start/end dates for other duration types
+      const startDate = new Date(this.duration.startDate);
+      const endDate = this.duration.endDate || new Date();
+      daysDiff = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+    }
     
     let expectedCheckIns = 0;
     switch (this.schedule.frequency) {
@@ -104,15 +112,99 @@ userGoalSchema.pre('save', function(next) {
         break;
     }
     
+    console.log('Calculating target check-ins:', {
+      durationType: this.duration.type,
+      customDays: this.duration.customDays,
+      daysDiff,
+      frequency: this.schedule.frequency,
+      expectedCheckIns,
+      currentCompleted: this.progress.completedCheckIns
+    });
+    
     this.progress.targetCheckIns = Math.max(expectedCheckIns, this.progress.completedCheckIns);
   }
   
   next();
 });
 
-// Method to add a check-in
+// Helper method to parse time string to hours and minutes
+userGoalSchema.methods.parseTime = function(timeString) {
+  if (!timeString || timeString === 'Throughout day') {
+    return { hours: 0, minutes: 0, isAllDay: true };
+  }
+  
+  const timeMatch = timeString.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+  if (!timeMatch) {
+    return { hours: 0, minutes: 0, isAllDay: true };
+  }
+  
+  let hours = parseInt(timeMatch[1]);
+  const minutes = parseInt(timeMatch[2]);
+  const period = timeMatch[3]?.toUpperCase();
+  
+  if (period === 'PM' && hours !== 12) {
+    hours += 12;
+  } else if (period === 'AM' && hours === 12) {
+    hours = 0;
+  }
+  
+  return { hours, minutes, isAllDay: false };
+};
+
+// Helper method to get time window for check-ins
+userGoalSchema.methods.getTimeWindow = function() {
+  const now = new Date();
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+  
+  const timeInfo = this.parseTime(this.schedule.time);
+  
+  if (timeInfo.isAllDay) {
+    return {
+      canCheckIn: true,
+      startTime: '00:00',
+      endTime: '23:59',
+      nextAvailableTime: null
+    };
+  }
+  
+  // Create start and end times for today
+  const startTime = new Date(today);
+  startTime.setHours(timeInfo.hours, timeInfo.minutes, 0, 0);
+  
+  const endTime = new Date(today);
+  endTime.setHours(23, 59, 59, 999);
+  
+  // Check if current time is within the window
+  const canCheckIn = now >= startTime && now <= endTime;
+  
+  // If not in window, calculate next available time
+  let nextAvailableTime = null;
+  if (!canCheckIn) {
+    if (now < startTime) {
+      // Before start time today
+      nextAvailableTime = startTime;
+    } else {
+      // After end time today, next available is tomorrow
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(timeInfo.hours, timeInfo.minutes, 0, 0);
+      nextAvailableTime = tomorrow;
+    }
+  }
+  
+  return {
+    canCheckIn,
+    startTime: `${timeInfo.hours.toString().padStart(2, '0')}:${timeInfo.minutes.toString().padStart(2, '0')}`,
+    endTime: '23:59',
+    nextAvailableTime
+  };
+};
+
+// Method to add a check-in with time window validation
 userGoalSchema.methods.addCheckIn = function(notes = '') {
-  const today = new Date();
+  const now = new Date();
+  const today = new Date(now);
   today.setHours(0, 0, 0, 0);
   
   // Check if already checked in today
@@ -124,6 +216,24 @@ userGoalSchema.methods.addCheckIn = function(notes = '') {
   
   if (existingCheckIn) {
     return { success: false, message: 'Already checked in today' };
+  }
+  
+  // Check if it's within the allowed time window
+  const timeWindow = this.getTimeWindow();
+  if (!timeWindow.canCheckIn) {
+    const nextTime = timeWindow.nextAvailableTime;
+    const nextTimeString = nextTime ? nextTime.toLocaleTimeString('en-US', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: true 
+    }) : 'tomorrow';
+    
+    return { 
+      success: false, 
+      message: `Check-in is only available from ${timeWindow.startTime} to ${timeWindow.endTime}`,
+      nextAvailableTime: nextTime,
+      nextAvailableTimeString: nextTimeString
+    };
   }
   
   // Add new check-in

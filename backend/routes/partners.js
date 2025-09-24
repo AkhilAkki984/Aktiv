@@ -2,12 +2,15 @@ import express from 'express';
 import auth from '../middleware/auth.js';
 import User from '../models/User.js';
 import Connection from '../models/Connection.js';
+import mongoose from 'mongoose';
 
 const router = express.Router();
 
 // Get partners based on status filter
 router.get('/', auth, async (req, res) => {
   try {
+    console.log('Partners API request:', { user: req.user, query: req.query });
+    
     const { 
       status, // 'available', 'pending', 'accepted'
       q, // search query
@@ -17,13 +20,18 @@ router.get('/', auth, async (req, res) => {
     } = req.query;
     
     const currentUserId = req.user.id;
-    const currentUser = await User.findById(currentUserId);
+    console.log('Current user ID:', currentUserId, 'Type:', typeof currentUserId);
+    
+    // Convert string ID to ObjectId for MongoDB queries
+    const currentUserObjectId = new mongoose.Types.ObjectId(currentUserId);
+    
+    const currentUser = await User.findById(currentUserObjectId);
     
     if (!currentUser) {
       return res.status(404).json({ msg: 'User not found' });
     }
 
-    let query = { _id: { $ne: currentUserId } }; // Exclude current user
+    let query = { _id: { $ne: currentUserObjectId } }; // Exclude current user
     let filteredUserIds = [];
 
     // Filter users based on status
@@ -32,14 +40,14 @@ router.get('/', auth, async (req, res) => {
       const allUsers = await User.find(query, '_id').lean();
       const connections = await Connection.find({
         $or: [
-          { requester: currentUserId },
-          { receiver: currentUserId }
+          { requester: currentUserObjectId },
+          { receiver: currentUserObjectId }
         ]
       });
       
       const connectionMap = {};
       connections.forEach(conn => {
-        const otherUserId = conn.requester.toString() === currentUserId 
+        const otherUserId = conn.requester.toString() === currentUserObjectId.toString() 
           ? conn.receiver.toString() 
           : conn.requester.toString();
         connectionMap[otherUserId] = conn.status;
@@ -55,7 +63,7 @@ router.get('/', auth, async (req, res) => {
     } else if (status === 'pending') {
       // Show users who sent requests to current user
       const pendingConnections = await Connection.find({
-        receiver: currentUserId,
+        receiver: currentUserObjectId,
         status: 'PENDING'
       }).populate('requester', '_id');
       
@@ -65,13 +73,13 @@ router.get('/', auth, async (req, res) => {
       // Show users who are connected (accepted)
       const acceptedConnections = await Connection.find({
         $or: [
-          { requester: currentUserId, status: 'ACCEPTED' },
-          { receiver: currentUserId, status: 'ACCEPTED' }
+          { requester: currentUserObjectId, status: 'ACCEPTED' },
+          { receiver: currentUserObjectId, status: 'ACCEPTED' }
         ]
       }).populate('requester receiver', '_id');
       
       filteredUserIds = acceptedConnections.map(conn => {
-        return conn.requester._id.toString() === currentUserId 
+        return conn.requester._id.toString() === currentUserObjectId.toString() 
           ? conn.receiver._id 
           : conn.requester._id;
       });
@@ -216,7 +224,17 @@ router.get('/', auth, async (req, res) => {
 
   } catch (err) {
     console.error('Get partners error:', err);
-    res.status(500).json({ msg: 'Server error' });
+    console.error('Error details:', {
+      message: err.message,
+      name: err.name,
+      stack: err.stack
+    });
+    
+    if (err.name === 'CastError') {
+      res.status(400).json({ msg: 'Invalid user ID format' });
+    } else {
+      res.status(500).json({ msg: 'Server error' });
+    }
   }
 });
 
@@ -581,27 +599,32 @@ router.get('/connections/:userId', auth, async (req, res) => {
 // Get partner counts for all statuses
 router.get('/count', auth, async (req, res) => {
   try {
+    console.log('Partner counts request:', { user: req.user });
     const currentUserId = req.user.id;
+    console.log('Current user ID:', currentUserId);
+    
+    // Convert string ID to ObjectId for MongoDB queries
+    const currentUserObjectId = new mongoose.Types.ObjectId(currentUserId);
     
     // Get all connections for the current user
     const connections = await Connection.find({
       $or: [
-        { requester: currentUserId },
-        { receiver: currentUserId }
+        { requester: currentUserObjectId },
+        { receiver: currentUserObjectId }
       ]
     });
 
     // Create connection status map
     const connectionMap = {};
     connections.forEach(conn => {
-      const otherUserId = conn.requester.toString() === currentUserId 
+      const otherUserId = conn.requester.toString() === currentUserObjectId.toString() 
         ? conn.receiver.toString() 
         : conn.requester.toString();
       connectionMap[otherUserId] = conn.status;
     });
 
     // Get total user count (excluding current user)
-    const totalUsers = await User.countDocuments({ _id: { $ne: currentUserId } });
+    const totalUsers = await User.countDocuments({ _id: { $ne: currentUserObjectId } });
 
     // Calculate counts
     let availableCount = 0;
@@ -609,7 +632,7 @@ router.get('/count', auth, async (req, res) => {
     let activeCount = 0;
 
     // Get all other users to check their status
-    const allUsers = await User.find({ _id: { $ne: currentUserId } }, '_id').lean();
+    const allUsers = await User.find({ _id: { $ne: currentUserObjectId } }, '_id').lean();
     
     allUsers.forEach(user => {
       const connectionStatus = connectionMap[user._id.toString()];
@@ -623,7 +646,7 @@ router.get('/count', auth, async (req, res) => {
 
     // Count pending requests (where current user is receiver)
     pendingCount = await Connection.countDocuments({
-      receiver: currentUserId,
+      receiver: currentUserObjectId,
       status: 'PENDING'
     });
 
@@ -636,7 +659,17 @@ router.get('/count', auth, async (req, res) => {
 
   } catch (err) {
     console.error('Get partner counts error:', err);
-    res.status(500).json({ msg: 'Server error' });
+    console.error('Error details:', {
+      message: err.message,
+      name: err.name,
+      stack: err.stack
+    });
+    
+    if (err.name === 'CastError') {
+      res.status(400).json({ msg: 'Invalid user ID format' });
+    } else {
+      res.status(500).json({ msg: 'Server error' });
+    }
   }
 });
 

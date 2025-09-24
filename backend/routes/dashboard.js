@@ -5,6 +5,7 @@ import CheckIn from '../models/CheckIn.js';
 import Connection from '../models/Connection.js';
 import { PartnerGoal } from '../models/Goal.js';
 import { UserGoal } from '../models/Goal.js';
+import Post from '../models/Post.js';
 
 const router = express.Router();
 
@@ -29,6 +30,7 @@ router.get('/stats', auth, async (req, res) => {
     console.log('Current User:', currentUser.username);
     console.log('User Check-ins Count:', currentUser.checkIns.length);
     console.log('User Check-ins:', currentUser.checkIns);
+    console.log('User Connection Count:', currentUser.connectionCount);
 
     if (!currentUser) {
       return res.status(404).json({ msg: 'User not found' });
@@ -50,7 +52,9 @@ router.get('/stats', auth, async (req, res) => {
     const connections = await Connection.find({
       $or: [
         { user1: userId, status: 'accepted' },
-        { user2: userId, status: 'accepted' }
+        { user2: userId, status: 'accepted' },
+        { user1: userId, status: 'ACCEPTED' },
+        { user2: userId, status: 'ACCEPTED' }
       ]
     }).populate('user1 user2', 'username');
 
@@ -60,6 +64,11 @@ router.get('/stats', auth, async (req, res) => {
 
     console.log('Connections found:', connections.length);
     console.log('Partner IDs from connections:', partnerIds);
+    console.log('Connection details:', connections.map(c => ({
+      user1: c.user1.username,
+      user2: c.user2.username,
+      status: c.status
+    })));
 
     const recentCheckIns = await CheckIn.find({
       user: { $in: [userId, ...partnerIds] }
@@ -73,11 +82,11 @@ router.get('/stats', auth, async (req, res) => {
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    // Active partners count (users who have goals with current user)
-    const activePartners = partnerIds.length;
+    // Active partners count - use user's connectionCount field
+    const activePartners = currentUser.connectionCount || 0;
     
-    console.log('Active Partners:', activePartners);
-    console.log('Partner IDs:', partnerIds);
+    console.log('Active Partners (from connectionCount):', activePartners);
+    console.log('Partner IDs from connections query:', partnerIds);
 
     // Get total check-ins from all user goals (real data)
     const totalCheckInsFromGoals = userGoals.reduce((sum, goal) => {
@@ -142,6 +151,23 @@ router.get('/stats', auth, async (req, res) => {
     console.log('Current Streak from Goals:', currentStreak);
     console.log('All Check-in Dates:', uniqueDates);
 
+    // Get user's posts count (only posts with images)
+    const allUserPosts = await Post.find({ user: userId }).select('mediaUrl mediaType text');
+    const userPostsCount = await Post.countDocuments({ 
+      user: userId, 
+      mediaUrl: { $exists: true, $ne: null, $ne: '' },
+      mediaType: { $in: ['image', 'video'] }
+    });
+    
+    console.log('All user posts for user:', currentUser.username);
+    console.log('Posts details:', allUserPosts.map(p => ({
+      text: p.text?.substring(0, 50) + '...',
+      mediaUrl: p.mediaUrl ? 'HAS_MEDIA' : 'NO_MEDIA',
+      mediaType: p.mediaType
+    })));
+    console.log('Posts with media count:', userPostsCount);
+    console.log('User ID:', userId);
+    
     // Goals statistics
     const totalPartnerGoals = partnerGoals.length;
     const totalUserGoals = userGoals.length;
@@ -293,8 +319,15 @@ router.get('/stats', auth, async (req, res) => {
       user: {
         username: currentUser.username,
         score: currentUser.score,
-        totalCheckIns: totalCheckInsFromGoals
-      }
+        totalCheckIns: totalCheckInsFromGoals,
+        postsCount: userPostsCount
+      },
+      // Additional data for frontend
+      postsCount: userPostsCount,
+      connectionsCount: activePartners,
+      consistencyScore: consistencyScore,
+      currentStreak: currentStreak,
+      goalsAchieved: totalGoalsAchieved
     });
 
   } catch (err) {

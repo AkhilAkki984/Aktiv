@@ -5,6 +5,8 @@ import { useSocket } from '../hooks/useSocket';
 import PostComposer from '../components/PostComposer';
 import PostCard from '../components/PostCard';
 import { getAvatarSrc } from '../utils/avatarUtils';
+import BackButton from '../components/BackButton';
+import { postsAPI, dashboardAPI } from '../utils/api';
 import { 
   Filter, 
   RefreshCw,
@@ -26,6 +28,13 @@ const Feed = () => {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [showFilters, setShowFilters] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState(new Set());
+  const [userStats, setUserStats] = useState({
+    consistency: 0,
+    postsCount: 0,
+    connectionsCount: 0,
+    currentStreak: 0,
+    goalsAchieved: 0
+  });
   
   const observerRef = useRef();
   const loadMoreRef = useRef();
@@ -44,6 +53,43 @@ const Feed = () => {
     'General': { icon: Activity, color: 'text-gray-600', bg: 'bg-gray-100' }
   };
 
+  // Fetch user statistics
+  const fetchUserStats = async () => {
+    try {
+      const response = await dashboardAPI.getStats();
+      const data = response.data;
+      
+      console.log('Dashboard API response:', data);
+      
+      setUserStats({
+        consistency: data.consistencyScore || 0,
+        postsCount: data.postsCount || 0,
+        connectionsCount: data.connectionsCount || 0,
+        currentStreak: data.currentStreak || 0,
+        goalsAchieved: data.goalsAchieved || 0
+      });
+      
+      console.log('User stats set:', {
+        consistency: data.consistencyScore || 0,
+        postsCount: data.postsCount || 0,
+        connectionsCount: data.connectionsCount || 0,
+        currentStreak: data.currentStreak || 0,
+        goalsAchieved: data.goalsAchieved || 0
+      });
+      
+      console.log('Raw dashboard data:', {
+        postsCount: data.postsCount,
+        connectionsCount: data.connectionsCount,
+        consistencyScore: data.consistencyScore,
+        currentStreak: data.currentStreak,
+        goalsAchieved: data.goalsAchieved
+      });
+    } catch (error) {
+      console.error('Error fetching user stats:', error);
+      // Keep default values if fetch fails
+    }
+  };
+
   // Fetch posts
   const fetchPosts = async (pageNum = 1, category = selectedCategory, reset = false) => {
     try {
@@ -54,31 +100,27 @@ const Feed = () => {
         setLoadingMore(true);
       }
 
-      const params = new URLSearchParams({
+      const params = {
         page: pageNum,
         limit: 10
-      });
+      };
       
       if (category !== 'All') {
-        params.append('category', category);
+        params.category = category;
       }
 
-      const response = await fetch(`/api/posts?${params}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch posts');
-      }
-
-      const data = await response.json();
+      console.log('Fetching posts with params:', params);
+      const response = await postsAPI.getPosts(params);
+      const data = response.data;
+      
+      console.log('Posts response:', data);
+      console.log('Posts array:', data.posts);
+      console.log('Number of posts:', data.posts?.length || 0);
       
       if (reset) {
-        setPosts(data.posts);
+        setPosts(data.posts || []);
       } else {
-        setPosts(prev => [...prev, ...data.posts]);
+        setPosts(prev => [...prev, ...(data.posts || [])]);
       }
       
       setHasMore(data.pagination.hasNextPage);
@@ -108,6 +150,8 @@ const Feed = () => {
   // Handle new post creation
   const handlePostCreated = (newPost) => {
     setPosts(prev => [newPost, ...prev]);
+    // Refresh user stats when a new post is created
+    fetchUserStats();
   };
 
   // Handle post updates
@@ -115,6 +159,8 @@ const Feed = () => {
     if (updates === null) {
       // Remove post (deleted)
       setPosts(prev => prev.filter(post => post._id !== postId));
+      // Refresh user stats when a post is deleted
+      fetchUserStats();
     } else {
       // Update post
       setPosts(prev => prev.map(post => 
@@ -129,6 +175,8 @@ const Feed = () => {
 
     const handlePostCreated = (newPost) => {
       setPosts(prev => [newPost, ...prev]);
+      // Refresh user stats when a new post is created via socket
+      fetchUserStats();
     };
 
     const handlePostUpdated = (data) => {
@@ -207,11 +255,14 @@ const Feed = () => {
   // Initial load
   useEffect(() => {
     fetchPosts(1, selectedCategory, true);
+    fetchUserStats();
   }, []);
 
   // Refresh posts
   const handleRefresh = () => {
     fetchPosts(1, selectedCategory, true);
+    // Also refresh user stats when manually refreshing
+    fetchUserStats();
   };
 
   if (loading) {
@@ -227,16 +278,19 @@ const Feed = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-4xl mx-auto px-4 py-6">
+      <div className="max-w-7xl mx-auto px-4 py-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-              Community Feed
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400">
-              Share your fitness journey with the community
-            </p>
+          <div className="flex items-center gap-4">
+            <BackButton />
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                Community Feed
+              </h1>
+              <p className="text-gray-600 dark:text-gray-400">
+                Share your fitness journey with the community
+              </p>
+            </div>
           </div>
           
           <div className="flex items-center gap-3">
@@ -293,33 +347,101 @@ const Feed = () => {
           </div>
         )}
 
-        {/* Post Composer */}
-        <PostComposer onPostCreated={handlePostCreated} socket={socket} />
-
-        {/* Posts Feed */}
-        <div className="space-y-6">
-          {posts.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Activity size={32} className="text-gray-400" />
+        {/* Main Content Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Left Sidebar - Profile Card */}
+          <div className="lg:col-span-1">
+            {/* User Profile Card - Sticky */}
+            <div className="sticky top-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+              <div className="p-6 text-center">
+                <img
+                  src={getAvatarSrc(user.avatar, user.username)}
+                  alt={user.username}
+                  className="w-20 h-20 rounded-full mx-auto mb-4 object-cover"
+                />
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {user.username}
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                  {user.bio || 'Fitness Enthusiast'}
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-500 mb-4">
+                  {user.location ? 'Bengaluru, India' : 'Your Location'}
+                </p>
+                
+                {/* Fitness Profile - 5 items with real data */}
+                <div className="border-t border-gray-200 dark:border-gray-700 pt-4 space-y-3">
+                  <div className="text-center">
+                    <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Fitness Profile</h4>
+                    <div className="space-y-3">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600 dark:text-gray-400">Consistency</span>
+                        <span className="font-medium text-green-600">
+                          {userStats.consistency}%
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600 dark:text-gray-400">Images Posted</span>
+                        <span className="font-medium text-gray-900 dark:text-white">
+                          {userStats.postsCount}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600 dark:text-gray-400">Connections</span>
+                        <span className="font-medium text-gray-900 dark:text-white">
+                          {userStats.connectionsCount}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600 dark:text-gray-400">Current Streak</span>
+                        <span className="font-medium text-orange-600">
+                          {userStats.currentStreak > 0 ? `${userStats.currentStreak} 🔥` : '0 ❄️'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600 dark:text-gray-400">Goals Achieved</span>
+                        <span className="font-medium text-purple-600">
+                          {userStats.goalsAchieved}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                No posts yet
-              </h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-4">
-                Be the first to share your fitness journey!
-              </p>
             </div>
-          ) : (
-            posts.map(post => (
-              <PostCard
-                key={post._id}
-                post={post}
-                onUpdate={handlePostUpdate}
-                socket={socket}
-              />
-            ))
-          )}
+          </div>
+
+          {/* Main Feed */}
+          <div className="lg:col-span-3 space-y-6">
+            {/* Post Composer */}
+            <PostComposer onPostCreated={handlePostCreated} socket={socket} />
+
+            {/* Posts Feed */}
+            <div className="space-y-6">
+              {posts.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Activity size={32} className="text-gray-400" />
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                    No posts yet
+                  </h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">
+                    Be the first to share your fitness journey!
+                  </p>
+                </div>
+              ) : (
+                posts.map(post => (
+                  <PostCard
+                    key={post._id}
+                    post={post}
+                    onUpdate={handlePostUpdate}
+                    socket={socket}
+                  />
+                ))
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Load more indicator */}

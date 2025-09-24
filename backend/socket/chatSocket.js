@@ -7,34 +7,9 @@ import Group from '../models/Group.js';
 // Store online users
 const onlineUsers = new Map();
 
-// Socket authentication middleware
-const authenticateSocket = async (socket, next) => {
-  try {
-    const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.split(' ')[1];
-    
-    if (!token) {
-      return next(new Error('Authentication error: No token provided'));
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.id).select('-password');
-    
-    if (!user) {
-      return next(new Error('Authentication error: User not found'));
-    }
-
-    socket.userId = user._id.toString();
-    socket.user = user;
-    next();
-  } catch (err) {
-    next(new Error('Authentication error: Invalid token'));
-  }
-};
-
 // Initialize chat socket events
 export const initializeChatSocket = (io) => {
-  // Apply authentication middleware
-  io.use(authenticateSocket);
+  // Authentication is handled in server.js
 
   io.on('connection', (socket) => {
     console.log(`User ${socket.user.username} connected with socket ${socket.id}`);
@@ -207,10 +182,25 @@ export const initializeChatSocket = (io) => {
     // Handle typing indicators
     socket.on('typing', async (data) => {
       try {
-        const { chatId, isTyping } = data;
+        const { conversationId, isGroup, isTyping } = data;
         
-        if (isGroupMessage) {
-          const groupId = chatId.replace('group_', '');
+        if (!conversationId) {
+          return socket.emit('error', { message: 'conversationId is required' });
+        }
+
+        if (isGroup) {
+          // Group typing - broadcast to all group members except sender
+          const groupId = conversationId.replace('group_', '');
+          const group = await Group.findById(groupId);
+          
+          if (!group || !group.isMember(socket.userId)) {
+            return socket.emit('error', { message: 'Group not found or access denied' });
+          }
+
+          // Join sender to group room if not already joined
+          socket.join(`group_${groupId}`);
+          
+          // Broadcast to all group members except sender
           socket.to(`group_${groupId}`).emit('user_typing', {
             userId: socket.userId,
             user: {
@@ -220,12 +210,18 @@ export const initializeChatSocket = (io) => {
               lastName: socket.user.lastName
             },
             groupId: groupId,
+            groupName: group.name,
             isTyping: isTyping
           });
         } else {
-          const chat = await Chat.findById(chatId);
-          if (chat) {
-            const otherParticipant = chat.participants.find(p => p.toString() !== socket.userId);
+          // Direct message typing - send only to recipient
+          const chat = await Chat.findById(conversationId);
+          if (!chat || !chat.participants.includes(socket.userId)) {
+            return socket.emit('error', { message: 'Chat not found or access denied' });
+          }
+
+          const otherParticipant = chat.participants.find(p => p.toString() !== socket.userId);
+          if (otherParticipant) {
             socket.to(`user_${otherParticipant}`).emit('user_typing', {
               userId: socket.userId,
               user: {
@@ -234,13 +230,14 @@ export const initializeChatSocket = (io) => {
                 firstName: socket.user.firstName,
                 lastName: socket.user.lastName
               },
-              chatId: chatId,
+              chatId: conversationId,
               isTyping: isTyping
             });
           }
         }
       } catch (error) {
         console.error('Error handling typing:', error);
+        socket.emit('error', { message: 'Failed to handle typing event' });
       }
     });
 

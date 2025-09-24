@@ -25,9 +25,10 @@ const postSchema = new mongoose.Schema({
   },
   text: {
     type: String,
-    required: true,
+    required: false,
     trim: true,
-    maxlength: 2000
+    maxlength: 2000,
+    default: ''
   },
   mediaUrl: {
     type: String,

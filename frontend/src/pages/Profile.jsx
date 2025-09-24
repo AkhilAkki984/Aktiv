@@ -13,6 +13,7 @@ import { AuthContext } from '../context/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
 import { getAvatarSrc } from '../utils/avatarUtils';
+import BackButton from '../components/BackButton';
 
 const Profile = () => {
   const { user, login } = useContext(AuthContext);
@@ -33,6 +34,9 @@ const Profile = () => {
 
   return (
     <Box sx={{ maxWidth: 700, mx: 'auto', mt: 4 }}>
+      <div className="mb-4">
+        <BackButton />
+      </div>
       <Paper
         elevation={3}
         sx={{ p: 4, borderRadius: 3, textAlign: 'center', mb: 3 }}

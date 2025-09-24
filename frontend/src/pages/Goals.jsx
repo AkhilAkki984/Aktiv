@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import GoalForm from "../components/GoalForm.jsx";
+import BackButton from "../components/BackButton.jsx";
 
 const Goals = () => {
   const navigate = useNavigate();
@@ -47,11 +48,21 @@ const Goals = () => {
     const fetchGoals = async () => {
       try {
         setLoading(true);
+        console.log('Fetching goals...');
         const response = await goalsAPI.getGoals();
-        setGoals(response.data);
+        console.log('Goals fetched successfully:', response.data);
+        
+        // Filter out completed goals and sort by creation date
+        const activeGoals = response.data
+          .filter(goal => goal.status !== 'completed')
+          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        
+        console.log('Active goals after filtering:', activeGoals);
+        setGoals(activeGoals);
       } catch (err) {
         console.error('Failed to fetch goals:', err);
         enqueueSnackbar('Failed to load goals', { variant: 'error' });
+        console.log('Using dummy goals as fallback');
         setGoals(getDummyGoals());
       } finally {
         setLoading(false);
@@ -112,12 +123,15 @@ const Goals = () => {
 
   const handleCheckIn = async (goalId) => {
     try {
+      console.log('Starting check-in for goal:', goalId);
       const response = await goalsAPI.checkIn(goalId, { notes: '' });
       const updatedGoal = response.data;
       
+      console.log('Check-in response:', updatedGoal);
+      
       // Check if goal is now 100% complete
       const progressPercentage = getProgressPercentage(updatedGoal);
-      console.log('Progress percentage:', progressPercentage);
+      console.log('Progress percentage after check-in:', progressPercentage);
       
       if (progressPercentage >= 100) {
         // Auto-complete the goal
@@ -147,12 +161,31 @@ const Goals = () => {
   };
 
   const handleGoalSaved = (savedGoal) => {
+    console.log('Goal saved callback:', {
+      isEdit: !!editingGoal,
+      editingGoalId: editingGoal?._id,
+      savedGoal: savedGoal,
+      currentGoals: goals.length
+    });
+    
     if (editingGoal) {
-      setGoals(goals.map(goal => 
-        goal._id === editingGoal._id ? savedGoal : goal
-      ));
+      // If goal was completed, remove it from the goals list
+      if (savedGoal.status === 'completed') {
+        const filteredGoals = goals.filter(goal => goal._id !== editingGoal._id);
+        console.log('Goal completed, removed from list:', filteredGoals);
+        setGoals(filteredGoals);
+      } else {
+        // Otherwise, update the goal in the list
+        const updatedGoals = goals.map(goal => 
+          goal._id === editingGoal._id ? savedGoal : goal
+        );
+        console.log('Updated goals after edit:', updatedGoals);
+        setGoals(updatedGoals);
+      }
     } else {
-      setGoals([savedGoal, ...goals]);
+      const newGoals = [savedGoal, ...goals];
+      console.log('New goals after create:', newGoals);
+      setGoals(newGoals);
     }
     setShowGoalForm(false);
     setEditingGoal(null);
@@ -173,8 +206,17 @@ const Goals = () => {
 
   const handleCompleteGoal = async (goalId) => {
     try {
-      await goalsAPI.updateGoal(goalId, { status: 'completed', completedAt: new Date() });
-      // Remove the completed goal from the goals list
+      console.log('Completing goal:', goalId);
+      
+      // Update goal status to completed
+      const response = await goalsAPI.updateGoal(goalId, { 
+        status: 'completed', 
+        completedAt: new Date() 
+      });
+      
+      console.log('Goal completion response:', response.data);
+      
+      // Remove the completed goal from the goals list immediately
       setGoals(goals.filter(goal => goal._id !== goalId));
       enqueueSnackbar('Goal completed successfully! 🎉', { variant: 'success' });
       
@@ -185,8 +227,11 @@ const Goals = () => {
       // Refresh the goals list to ensure consistency
       setTimeout(async () => {
         try {
+          console.log('Refreshing goals list...');
           const response = await goalsAPI.getGoals();
-          setGoals(response.data.filter(goal => goal.status !== 'completed'));
+          const activeGoals = response.data.filter(goal => goal.status !== 'completed');
+          console.log('Refreshed goals:', activeGoals);
+          setGoals(activeGoals);
         } catch (err) {
           console.error('Failed to refresh goals:', err);
         }
@@ -226,15 +271,18 @@ const Goals = () => {
     <div className="min-h-screen bg-white transition-colors">
       {/* 🔹 Navbar */}
       <header className="sticky top-0 z-50 flex items-center justify-between px-6 py-3 bg-white border-b border-gray-200 shadow-md">
-        {/* Logo + Name */}
-        <div
-          onClick={() => navigate("/dashboard")}
-          className="flex items-center gap-2 cursor-pointer"
-        >
-          <div className="w-9 h-9 flex items-center justify-center rounded-full font-bold text-white" style={{backgroundColor: '#0046ff'}}>
-            A
+        {/* Left side with Back button and Logo */}
+        <div className="flex items-center gap-4">
+          <BackButton />
+          <div
+            onClick={() => navigate("/dashboard")}
+            className="flex items-center gap-2 cursor-pointer"
+          >
+            <div className="w-9 h-9 flex items-center justify-center rounded-full font-bold text-white" style={{backgroundColor: '#0046ff'}}>
+              A
+            </div>
+            <span className="text-xl font-bold text-black">Aktiv</span>
           </div>
-          <span className="text-xl font-bold text-black">Aktiv</span>
         </div>
 
         {/* Nav Links */}
@@ -411,8 +459,82 @@ const Goals = () => {
 // Goal Card Component
 const GoalCard = ({ goal, onCheckIn, onEdit, onDelete, onComplete, getStatusColor, getProgressPercentage, getFrequencyText }) => {
   const progressPercentage = getProgressPercentage(goal);
-  const isCheckedInToday = goal.progress.lastCheckIn && 
-    new Date(goal.progress.lastCheckIn).toDateString() === new Date().toDateString();
+  // Check if already checked in today - look at checkIns array instead of lastCheckIn
+  const isCheckedInToday = goal.checkIns && goal.checkIns.some(checkIn => {
+    const checkInDate = new Date(checkIn.date);
+    const today = new Date();
+    return checkInDate.toDateString() === today.toDateString();
+  });
+
+  // Check if current time is within the allowed window
+  const getTimeWindowStatus = (goal) => {
+    const now = new Date();
+    const timeString = goal.schedule.time;
+    
+    if (!timeString || timeString === 'Throughout day') {
+      return { canCheckIn: true, message: null };
+    }
+    
+    // Parse time string (e.g., "5:00 PM")
+    const timeMatch = timeString.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+    if (!timeMatch) {
+      return { canCheckIn: true, message: null };
+    }
+    
+    let hours = parseInt(timeMatch[1]);
+    const minutes = parseInt(timeMatch[2]);
+    const period = timeMatch[3]?.toUpperCase();
+    
+    if (period === 'PM' && hours !== 12) {
+      hours += 12;
+    } else if (period === 'AM' && hours === 12) {
+      hours = 0;
+    }
+    
+    const startTime = new Date(now);
+    startTime.setHours(hours, minutes, 0, 0);
+    
+    const endTime = new Date(now);
+    endTime.setHours(23, 59, 59, 999);
+    
+    const canCheckIn = now >= startTime && now <= endTime;
+    
+    if (!canCheckIn) {
+      if (now < startTime) {
+        const nextTime = startTime.toLocaleTimeString('en-US', { 
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: true 
+        });
+        return { 
+          canCheckIn: false, 
+          message: `Check-in available at ${nextTime}` 
+        };
+      } else {
+        return { 
+          canCheckIn: false, 
+          message: 'Check-in window closed for today' 
+        };
+      }
+    }
+    
+    return { canCheckIn: true, message: null };
+  };
+
+  const timeWindowStatus = getTimeWindowStatus(goal);
+  const canCheckInNow = !isCheckedInToday && timeWindowStatus.canCheckIn;
+  
+  // Debug logging for check-in button visibility
+  console.log('Goal check-in status:', {
+    goalId: goal._id,
+    title: goal.title,
+    status: goal.status,
+    isCheckedInToday,
+    timeWindowStatus,
+    canCheckInNow,
+    checkIns: goal.checkIns,
+    lastCheckIn: goal.progress.lastCheckIn
+  });
 
   return (
     <motion.div
@@ -427,6 +549,11 @@ const GoalCard = ({ goal, onCheckIn, onEdit, onDelete, onComplete, getStatusColo
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-2">
             {goal.title}
           </h3>
+          {goal.description && (
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+              {goal.description}
+            </p>
+          )}
           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(goal.status)}`}>
             {goal.status.charAt(0).toUpperCase() + goal.status.slice(1)}
           </span>
@@ -482,19 +609,30 @@ const GoalCard = ({ goal, onCheckIn, onEdit, onDelete, onComplete, getStatusColo
         </div>
       </div>
 
+      {/* Time Window Status */}
+      {!timeWindowStatus.canCheckIn && !isCheckedInToday && (
+        <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+          <p className="text-sm text-yellow-800 dark:text-yellow-200">
+            ⏰ {timeWindowStatus.message}
+          </p>
+        </div>
+      )}
+
       {/* Actions */}
       <div className="flex gap-2">
         {goal.status === 'active' ? (
           <button
             onClick={() => onCheckIn(goal._id)}
-            disabled={isCheckedInToday}
+            disabled={!canCheckInNow}
             className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
               isCheckedInToday
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-800 dark:text-gray-600'
+                : !canCheckInNow
                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-800 dark:text-gray-600'
                 : 'bg-green-600 text-white hover:bg-green-700'
             }`}
           >
-            {isCheckedInToday ? 'Checked In' : 'Check In'}
+            {isCheckedInToday ? 'Checked In' : !canCheckInNow ? 'Not Available' : 'Check In'}
           </button>
         ) : goal.status === 'paused' ? (
           <button

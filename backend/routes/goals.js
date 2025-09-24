@@ -144,6 +144,11 @@ router.post('/', auth, async (req, res) => {
 // Update a goal
 router.put('/:id', auth, async (req, res) => {
   try {
+    console.log('Goal update request received:', {
+      goalId: req.params.id,
+      body: req.body
+    });
+    
     const {
       title,
       description,
@@ -162,29 +167,45 @@ router.put('/:id', auth, async (req, res) => {
       return res.status(404).json({ msg: 'Goal not found' });
     }
     
-    // Update fields
-    if (title) goal.title = title;
+    // Update fields - allow empty strings and null values
+    if (title !== undefined) goal.title = title;
     if (description !== undefined) goal.description = description;
-    if (category) goal.category = category;
-    if (status) goal.status = status;
-    if (schedule) {
+    if (category !== undefined) goal.category = category;
+    if (status !== undefined) goal.status = status;
+    if (schedule !== undefined) {
       goal.schedule = {
         ...goal.schedule,
         ...schedule
       };
     }
-    if (duration) {
+    if (duration !== undefined) {
+      console.log('Updating duration:', {
+        currentDuration: goal.duration,
+        newDuration: duration
+      });
       goal.duration = {
         ...goal.duration,
         ...duration
       };
+      console.log('Updated duration:', goal.duration);
     }
     
     await goal.save();
     
+    // Recalculate progress percentage after update
     const progressPercentage = goal.progress.targetCheckIns > 0 
       ? Math.round((goal.progress.completedCheckIns / goal.progress.targetCheckIns) * 100)
       : 0;
+    
+    console.log('Goal updated successfully:', {
+      id: goal._id,
+      title: goal.title,
+      schedule: goal.schedule,
+      duration: goal.duration,
+      targetCheckIns: goal.progress.targetCheckIns,
+      completedCheckIns: goal.progress.completedCheckIns,
+      progressPercentage
+    });
     
     res.json({
       ...goal.toObject(),

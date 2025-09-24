@@ -148,6 +148,33 @@ const Dashboard = () => {
     }
   }, [user]);
 
+  // Listen for goal completion and dashboard refresh triggers
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const goalCompleted = localStorage.getItem('goal_completed');
+      const dashboardRefresh = localStorage.getItem('dashboard_refresh');
+      
+      if (goalCompleted || dashboardRefresh) {
+        console.log('Goal completion or dashboard refresh detected, refreshing data...');
+        refreshDashboardData();
+        
+        // Clear the triggers
+        localStorage.removeItem('goal_completed');
+        localStorage.removeItem('dashboard_refresh');
+      }
+    };
+
+    // Listen for storage events (from other tabs)
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Check for existing triggers on mount
+    handleStorageChange();
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
   // Fetch dashboard data
   useEffect(() => {
     const fetchDashboardData = async () => {

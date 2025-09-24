@@ -2,28 +2,7 @@ import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 
 export const initializeFeedSocket = (io) => {
-  // Middleware to authenticate socket connections
-  io.use(async (socket, next) => {
-    try {
-      const token = socket.handshake.auth.token;
-      if (!token) {
-        return next(new Error('Authentication error'));
-      }
-
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const user = await User.findById(decoded.id).select('-password');
-      
-      if (!user) {
-        return next(new Error('User not found'));
-      }
-
-      socket.userId = user._id;
-      socket.user = user;
-      next();
-    } catch (err) {
-      next(new Error('Authentication error'));
-    }
-  });
+  // Authentication is handled in server.js
 
   io.on('connection', (socket) => {
     console.log(`User ${socket.user.username} connected to feed`);

@@ -11,6 +11,7 @@ const GoalForm = ({ goal, onSave, onClose }) => {
     title: '',
     description: '',
     category: 'personal',
+    status: 'active',
     schedule: {
       frequency: 'daily',
       time: 'Throughout day',
@@ -28,6 +29,7 @@ const GoalForm = ({ goal, onSave, onClose }) => {
         title: goal.title || '',
         description: goal.description || '',
         category: goal.category || 'personal',
+        status: goal.status || 'active',
         schedule: {
           frequency: goal.schedule?.frequency || 'daily',
           time: goal.schedule?.time || 'Throughout day',
@@ -51,17 +53,40 @@ const GoalForm = ({ goal, onSave, onClose }) => {
 
     setLoading(true);
     try {
+      console.log('Submitting goal:', {
+        isEdit: !!goal,
+        goalId: goal?._id,
+        formData: formData
+      });
+      
+      // Add completedAt timestamp if status is being changed to completed
+      const updateData = { ...formData };
+      if (goal && formData.status === 'completed' && goal.status !== 'completed') {
+        updateData.completedAt = new Date();
+      }
+      
       const response = goal 
-        ? await goalsAPI.updateGoal(goal._id, formData)
-        : await goalsAPI.createGoal(formData);
+        ? await goalsAPI.updateGoal(goal._id, updateData)
+        : await goalsAPI.createGoal(updateData);
+      
+      console.log('Goal save response:', response.data);
+      
+      // If goal was completed, trigger dashboard refresh
+      if (goal && formData.status === 'completed' && goal.status !== 'completed') {
+        localStorage.setItem('goal_completed', Date.now().toString());
+        localStorage.setItem('dashboard_refresh', Date.now().toString());
+        enqueueSnackbar('Goal completed successfully! 🎉', { variant: 'success' });
+      } else {
+        enqueueSnackbar(
+          goal ? 'Goal updated successfully!' : 'Goal created successfully!',
+          { variant: 'success' }
+        );
+      }
       
       onSave(response.data);
-      enqueueSnackbar(
-        goal ? 'Goal updated successfully!' : 'Goal created successfully!',
-        { variant: 'success' }
-      );
     } catch (err) {
       console.error('Save goal error:', err);
+      console.error('Error response:', err.response?.data);
       enqueueSnackbar(err.response?.data?.msg || 'Failed to save goal', { variant: 'error' });
     } finally {
       setLoading(false);
@@ -69,20 +94,32 @@ const GoalForm = ({ goal, onSave, onClose }) => {
   };
 
   const handleInputChange = (field, value) => {
+    console.log('handleInputChange called:', { field, value, type: typeof value });
+    
     if (field.includes('.')) {
       const [parent, child] = field.split('.');
-      setFormData(prev => ({
-        ...prev,
-        [parent]: {
-          ...prev[parent],
-          [child]: value
-        }
-      }));
+      console.log('Nested field update:', { parent, child, value });
+      setFormData(prev => {
+        const newData = {
+          ...prev,
+          [parent]: {
+            ...prev[parent],
+            [child]: value
+          }
+        };
+        console.log('Updated formData:', newData);
+        return newData;
+      });
     } else {
-      setFormData(prev => ({
-        ...prev,
-        [field]: value
-      }));
+      console.log('Direct field update:', { field, value });
+      setFormData(prev => {
+        const newData = {
+          ...prev,
+          [field]: value
+        };
+        console.log('Updated formData:', newData);
+        return newData;
+      });
     }
   };
 
@@ -160,7 +197,10 @@ const GoalForm = ({ goal, onSave, onClose }) => {
             </label>
             <textarea
               value={formData.description}
-              onChange={(e) => handleInputChange('description', e.target.value)}
+              onChange={(e) => {
+                console.log('Description changed:', e.target.value);
+                handleInputChange('description', e.target.value);
+              }}
               placeholder="Optional description of your goal..."
               rows={3}
               className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-[#0f172a] text-gray-900 dark:text-white"
@@ -185,6 +225,25 @@ const GoalForm = ({ goal, onSave, onClose }) => {
               <option value="other">Other</option>
             </select>
           </div>
+
+          {/* Status - Only show for editing existing goals */}
+          {goal && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Status
+              </label>
+              <select
+                value={formData.status}
+                onChange={(e) => handleInputChange('status', e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-[#0f172a] text-gray-900 dark:text-white"
+              >
+                <option value="active">Active</option>
+                <option value="paused">Paused</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+          )}
 
           {/* Schedule */}
           <div className="space-y-4">

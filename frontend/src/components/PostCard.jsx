@@ -230,7 +230,7 @@ const PostCard = ({ post, onUpdate, socket }) => {
   };
 
   return (
-    <div className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden ${categoryColors[post.category]}`}>
+    <div className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden w-full max-w-full ${categoryColors[post.category]}`}>
       {/* Header */}
       <div className="p-4 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-between">
@@ -288,19 +288,28 @@ const PostCard = ({ post, onUpdate, socket }) => {
         {/* Media content */}
         {post.mediaUrl && (
           <div className="mb-4">
+            {console.log('Rendering media:', { mediaUrl: post.mediaUrl, mediaType: post.mediaType })}
             {post.mediaType === 'image' ? (
-              <img
-                src={post.mediaUrl}
-                alt="Post media"
-                className="w-full max-h-96 object-cover rounded-lg cursor-pointer"
-                onClick={() => window.open(post.mediaUrl, '_blank')}
-              />
+                <img
+                  src={post.mediaUrl}
+                  alt="Post media"
+                  className="w-full h-auto max-h-[400px] object-contain rounded-lg cursor-pointer hover:opacity-95 transition-opacity duration-200 bg-gray-50 dark:bg-gray-900"
+                  onClick={() => window.open(post.mediaUrl, '_blank')}
+                  onError={(e) => {
+                    console.error('Image failed to load:', post.mediaUrl);
+                    e.target.style.display = 'none';
+                  }}
+                />
             ) : (
               <video
                 src={post.mediaUrl}
                 controls
-                className="w-full max-h-96 rounded-lg"
+                className="w-full h-auto max-h-[400px] object-contain rounded-lg bg-gray-50 dark:bg-gray-900"
                 preload="metadata"
+                onError={(e) => {
+                  console.error('Video failed to load:', post.mediaUrl);
+                  e.target.style.display = 'none';
+                }}
               />
             )}
           </div>

@@ -4,6 +4,7 @@ import { useSnackbar } from "notistack";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSocket } from "../hooks/useSocket";
 import { getAvatarSrc } from "../utils/avatarUtils";
+import BackButton from "../components/BackButton";
 import { 
   Trophy, 
   User, 
@@ -34,6 +35,22 @@ const Leaderboard = () => {
   const { enqueueSnackbar } = useSnackbar();
   const socket = useSocket();
 
+  // Debug function to check user data
+  const debugUserData = async () => {
+    try {
+      const response = await fetch('/api/leaderboard/debug/current', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      const data = await response.json();
+      console.log('Debug user data:', data);
+      enqueueSnackbar(`Debug data logged to console`, { variant: "info" });
+    } catch (error) {
+      console.error('Debug error:', error);
+    }
+  };
+
   const metrics = [
     { id: 'streak', name: 'Streak', icon: Flame, color: 'text-orange-500' },
     { id: 'checkins', name: 'Check-ins', icon: CheckCircle, color: 'text-blue-500' },
@@ -61,10 +78,16 @@ const Leaderboard = () => {
         params.endDate = customDateRange.end;
       }
 
+      console.log('Fetching leaderboard with params:', params);
       const res = await leaderboardAPI.getLeaderboard(params);
+      console.log('Leaderboard response:', res.data);
+      console.log('Leaders data:', res.data.leaders);
+      console.log('Current user data:', res.data.currentUser);
+      
       setLeaders(res.data.leaders || []);
       setCurrentUser(res.data.currentUser || null);
     } catch (error) {
+      console.error('Leaderboard fetch error:', error);
       enqueueSnackbar("Failed to fetch leaderboard", { variant: "error" });
     } finally {
       setLoading(false);
@@ -150,12 +173,17 @@ const Leaderboard = () => {
           transition={{ duration: 0.5 }}
           className="mb-8"
         >
-          <h1 className="text-3xl font-bold text-black mb-2">
-            Leaderboard
-          </h1>
-          <p className="text-gray-600">
-            See how you rank among the fitness community
-          </p>
+          <div className="flex items-center gap-4 mb-4">
+            <BackButton />
+            <div>
+              <h1 className="text-3xl font-bold text-black mb-2">
+                Leaderboard
+              </h1>
+              <p className="text-gray-600">
+                See how you rank among the fitness community
+              </p>
+            </div>
+          </div>
         </motion.div>
 
         {/* Current User Banner */}
@@ -213,7 +241,13 @@ const Leaderboard = () => {
           })}
           
           {/* Time Period Dropdown */}
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              onClick={debugUserData}
+              className="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm hover:bg-gray-200"
+            >
+              Debug Data
+            </button>
             <select
               value={selectedFilter}
               onChange={(e) => {
@@ -290,6 +324,7 @@ const Leaderboard = () => {
             <div className="p-8 text-center text-gray-600">
               <Trophy className="w-12 h-12 mx-auto mb-4 opacity-50" />
               <p>No leaderboard data available</p>
+              <p className="text-sm mt-2">Start completing goals and check-ins to appear on the leaderboard!</p>
             </div>
           ) : (
             <div className="divide-y divide-gray-200">

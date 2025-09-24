@@ -2,8 +2,10 @@ import { useEffect, useState, useRef, useContext } from "react";
 import { useSnackbar } from "notistack";
 import { chatAPI, groupAPI, uploadAPI } from "../utils/api";
 import { AuthContext } from "../context/AuthContext";
+import { useSocket } from "../hooks/useSocket";
 import ErrorBoundary from "../components/ErrorBoundary";
 import { getAvatarSrc } from "../utils/avatarUtils";
+import BackButton from "../components/BackButton";
 import EmojiPicker from 'emoji-picker-react';
 import { 
   Search, 
@@ -30,6 +32,18 @@ import {
 const Chat = () => {
   const { user } = useContext(AuthContext);
   const { enqueueSnackbar } = useSnackbar();
+  const {
+    socket,
+    isConnected,
+    onlineUsers,
+    typingUsers,
+    sendMessage: socketSendMessage,
+    startTyping,
+    stopTyping,
+    markAsRead,
+    on,
+    off
+  } = useSocket();
   
   // State management
   const [conversations, setConversations] = useState([]);
@@ -52,6 +66,52 @@ const Chat = () => {
   const scrollRef = useRef();
   const fileInputRef = useRef();
   const messagesEndRef = useRef();
+  const typingTimeoutRef = useRef();
+
+  // Socket event listeners
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleReceiveMessage = (message) => {
+      console.log("Received message:", message);
+      console.log("Current selected chat:", selectedChat);
+      // Only add message if it's for the current chat
+      if (selectedChat && (message.chatId === selectedChat._id || message.chatId === selectedChat._id.replace('temp_', ''))) {
+        console.log("Adding message to current chat");
+        setMessages(prev => [...prev, message]);
+      }
+      // Always refresh conversations to update last message
+      fetchConversations();
+    };
+
+    const handleMessageSent = (message) => {
+      console.log("Message sent confirmation:", message);
+      console.log("Current selected chat:", selectedChat);
+      // Only add message if it's for the current chat
+      if (selectedChat && (message.chatId === selectedChat._id || message.chatId === selectedChat._id.replace('temp_', ''))) {
+        console.log("Adding sent message to current chat");
+        setMessages(prev => [...prev, message]);
+      }
+    };
+
+    const handleUpdateUnreadCount = (data) => {
+      setConversations(prev => prev.map(conv => 
+        conv._id === data.chatId 
+          ? { ...conv, unreadCount: data.unreadCount }
+          : conv
+      ));
+    };
+
+    on('receive_message', handleReceiveMessage);
+    on('message_sent', handleMessageSent);
+    on('update_unread_count', handleUpdateUnreadCount);
+
+    return () => {
+      off('receive_message', handleReceiveMessage);
+      off('message_sent', handleMessageSent);
+      off('update_unread_count', handleUpdateUnreadCount);
+    };
+  }, [socket, on, off, selectedChat]);
 
   // Fetch conversations on component mount
   useEffect(() => {
@@ -129,6 +189,7 @@ const Chat = () => {
       setSendingMessage(true);
       
       const messageData = {
+        chatId: selectedChat._id,
         content: content || "",
         messageType: uploadedMedia ? uploadedMedia.mediaType : (mediaFile ? 'media' : 'text')
       };
@@ -153,12 +214,24 @@ const Chat = () => {
         return;
       }
 
-      const response = await chatAPI.sendChatMessage(selectedChat._id, messageData);
-      setMessages(prev => [...prev, response.data]);
-      setMessageText("");
+      // Send via socket for real-time delivery
+      if (socket && isConnected) {
+        console.log("Sending via socket:", messageData);
+        socketSendMessage(messageData);
+        setMessageText("");
+        
+        // Stop typing
+        stopTyping(selectedChat._id);
+      } else {
+        // Fallback to API if socket is not connected
+        console.log("Socket not connected, using API fallback");
+        console.log("Socket status:", socket, "Connected:", isConnected);
+        const response = await chatAPI.sendChatMessage(selectedChat._id, messageData);
+        setMessages(prev => [...prev, response.data]);
+        setMessageText("");
+        await fetchConversations();
+      }
       
-      // Refresh conversations to update last message
-      await fetchConversations();
     } catch (err) {
       console.error("Error sending message:", err);
       enqueueSnackbar("Failed to send message", { variant: "error" });
@@ -170,7 +243,27 @@ const Chat = () => {
   // Handle text message send
   const handleSendMessage = () => {
     if (messageText.trim()) {
+      console.log("Sending message:", messageText);
+      console.log("Selected chat:", selectedChat);
+      console.log("Socket connected:", isConnected);
       sendMessage(messageText);
+    }
+  };
+
+  // Handle typing
+  const handleTyping = (e) => {
+    setMessageText(e.target.value);
+    
+    if (selectedChat) {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+
+      startTyping(selectedChat._id);
+
+      typingTimeoutRef.current = setTimeout(() => {
+        stopTyping(selectedChat._id);
+      }, 1000);
     }
   };
 
@@ -348,11 +441,17 @@ const Chat = () => {
         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
+              <BackButton />
               <h1 className="text-xl font-bold text-gray-900 dark:text-white">Messages</h1>
               {totalUnreadCount > 0 && (
                 <span className="bg-red-500 text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center">
                   {totalUnreadCount}
                 </span>
+              )}
+              {isConnected ? (
+                <div className="w-2 h-2 bg-green-500 rounded-full" title="Connected"></div>
+              ) : (
+                <div className="w-2 h-2 bg-red-500 rounded-full" title="Disconnected - Messages will be sent via API"></div>
               )}
             </div>
             <button
@@ -515,14 +614,13 @@ const Chat = () => {
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-2 bg-gradient-to-b from-green-50 to-green-100 dark:from-gray-800 dark:to-gray-900" style={{
-              backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23e5f3e5' fill-opacity='0.1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-              backgroundRepeat: 'repeat'
-            }}>
+            <div className="flex-1 overflow-y-auto p-4 bg-white dark:bg-gray-900">
               {messages.map((message, index) => {
                 const isOwnMessage = message.sender._id === user.id;
                 const prevMessage = index > 0 ? messages[index - 1] : null;
+                const nextMessage = index < messages.length - 1 ? messages[index + 1] : null;
                 const showAvatar = !isOwnMessage && (!prevMessage || prevMessage.sender._id !== message.sender._id);
+                const isLastInGroup = !nextMessage || nextMessage.sender._id !== message.sender._id;
                 
                 return (
                   <div
@@ -546,11 +644,11 @@ const Chat = () => {
                       
                       {/* Message bubble */}
                       <div
-                        className={`relative px-4 py-2 rounded-2xl shadow-sm ${
+                        className={`relative px-3 py-2 ${
                           isOwnMessage
-                            ? 'bg-blue-500 text-white rounded-br-md'
-                            : 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-bl-md border border-gray-200 dark:border-gray-600'
-                        }`}
+                            ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white rounded-2xl rounded-br-sm'
+                            : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white rounded-2xl rounded-bl-sm'
+                        } ${isLastInGroup ? '' : 'mb-0.5'}`}
                         style={{
                           maxWidth: '280px',
                           wordWrap: 'break-word'
@@ -558,12 +656,12 @@ const Chat = () => {
                       >
                         {/* Media Content */}
                         {message.media && (
-                          <div className="mb-2 -mx-2 -mt-2">
+                          <div className="mb-2 -mx-1 -mt-1">
                             {message.media.type === 'image' && (
                               <img
                                 src={message.media.url}
                                 alt="Shared image"
-                                className="rounded-t-lg max-h-64 object-cover w-full cursor-pointer"
+                                className="rounded-lg max-h-64 object-cover w-full cursor-pointer"
                                 onClick={() => window.open(message.media.url, '_blank')}
                               />
                             )}
@@ -571,7 +669,7 @@ const Chat = () => {
                               <video
                                 src={message.media.url}
                                 controls
-                                className="rounded-t-lg max-h-64 w-full"
+                                className="rounded-lg max-h-64 w-full"
                                 preload="metadata"
                               >
                                 Your browser does not support the video tag.
@@ -598,7 +696,7 @@ const Chat = () => {
                         
                         {/* Message Footer */}
                         <div className={`flex items-center gap-1 mt-1 ${isOwnMessage ? 'justify-end' : 'justify-start'}`}>
-                          <span className={`text-xs ${isOwnMessage ? 'text-blue-100' : 'text-gray-500'}`}>
+                          <span className={`text-xs ${isOwnMessage ? 'text-gray-500' : 'text-gray-500'}`}>
                             {formatTime(message.createdAt)}
                           </span>
                           {isOwnMessage && getMessageStatusIcon(message)}
@@ -608,6 +706,28 @@ const Chat = () => {
                   </div>
                 );
               })}
+              
+              {/* Typing Indicator */}
+              {typingUsers.length > 0 && (
+                <div className="flex justify-start mb-1">
+                  <div className="flex items-end gap-2 max-w-xs lg:max-w-md">
+                    <div className="w-8"></div>
+                    <div className="bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded-2xl rounded-bl-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="flex gap-1">
+                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                        </div>
+                        <span className="text-xs text-gray-500">
+                          {typingUsers.map(u => u.user.firstName || u.user.username).join(', ')} typing...
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               <div ref={messagesEndRef} />
             </div>
 
@@ -646,12 +766,12 @@ const Chat = () => {
                 </div>
               )}
 
-               <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 rounded-full px-4 py-2">
+               <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800 rounded-full px-4 py-2">
                  {/* Media Upload Button */}
                  <button
                    onClick={() => fileInputRef.current?.click()}
                    disabled={uploadingMedia}
-                   className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 disabled:opacity-50 transition-colors"
+                   className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 disabled:opacity-50 transition-colors"
                    title="Upload media"
                  >
                    {uploadingMedia ? (
@@ -672,7 +792,7 @@ const Chat = () => {
                 {/* Emoji Button */}
                 <button
                   onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                  className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 transition-colors"
+                  className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 transition-colors"
                   title="Add emoji"
                 >
                   <Smile size={20} />
@@ -681,16 +801,21 @@ const Chat = () => {
                 {/* Message Input */}
                 <input
                   type="text"
-                  placeholder="Type a message..."
+                  placeholder="Message..."
                   value={messageText}
-                  onChange={(e) => setMessageText(e.target.value)}
+                  onChange={handleTyping}
                   onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                   className="flex-1 px-3 py-2 bg-transparent text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none"
                 />
                 
                 {/* Send Button */}
                 <button
-                  onClick={handleSendMessage}
+                  onClick={() => {
+                    console.log("Send button clicked");
+                    console.log("Message text:", messageText);
+                    console.log("Selected chat:", selectedChat);
+                    handleSendMessage();
+                  }}
                   disabled={(!messageText.trim() && !previewMedia) || sendingMessage || uploadingMedia}
                   className="p-2 rounded-full bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
