@@ -647,7 +647,7 @@ const Chat = () => {
                       <div
                         className={`relative px-4 py-2 ${
                           isOwnMessage
-                            ? 'bg-green-200 text-gray-900 rounded-2xl rounded-br-sm'
+                            ? 'bg-blue-200 text-gray-900 rounded-2xl rounded-br-sm'
                             : 'bg-gray-200 text-gray-900 rounded-2xl rounded-bl-sm'
                         } ${isLastInGroup ? '' : 'mb-0.5'}`}
                         style={{
@@ -680,7 +680,7 @@ const Chat = () => {
                               <audio src={message.media.url} controls className="w-full" />
                             )}
                             {message.media.type === 'document' && (
-                              <div className={`flex items-center gap-2 p-2 ${isOwnMessage ? 'bg-green-300' : 'bg-gray-300'} rounded`}>
+                              <div className={`flex items-center gap-2 p-2 ${isOwnMessage ? 'bg-blue-300' : 'bg-gray-300'} rounded`}>
                                 <FileText size={20} />
                                 <span className="text-sm">{message.media.filename}</span>
                               </div>
