@@ -614,9 +614,10 @@ const Chat = () => {
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 bg-white dark:bg-gray-900">
+            <div className="flex-1 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900">
               {messages.map((message, index) => {
-                const isOwnMessage = message.sender._id === user.id;
+                // Properly compare user ID with sender ID
+                const isOwnMessage = message.sender._id === user._id || message.sender._id === user.id;
                 const prevMessage = index > 0 ? messages[index - 1] : null;
                 const nextMessage = index < messages.length - 1 ? messages[index + 1] : null;
                 const showAvatar = !isOwnMessage && (!prevMessage || prevMessage.sender._id !== message.sender._id);
@@ -625,7 +626,7 @@ const Chat = () => {
                 return (
                   <div
                     key={message._id}
-                    className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} mb-1`}
+                    className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} mb-2`}
                   >
                     <div className={`flex items-end gap-2 max-w-xs lg:max-w-md ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`}>
                       {/* Avatar for received messages */}
@@ -644,10 +645,10 @@ const Chat = () => {
                       
                       {/* Message bubble */}
                       <div
-                        className={`relative px-3 py-2 ${
+                        className={`relative px-4 py-2 ${
                           isOwnMessage
-                            ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white rounded-2xl rounded-br-sm'
-                            : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white rounded-2xl rounded-bl-sm'
+                            ? 'bg-green-200 text-gray-900 rounded-2xl rounded-br-sm'
+                            : 'bg-gray-200 text-gray-900 rounded-2xl rounded-bl-sm'
                         } ${isLastInGroup ? '' : 'mb-0.5'}`}
                         style={{
                           maxWidth: '280px',
@@ -679,7 +680,7 @@ const Chat = () => {
                               <audio src={message.media.url} controls className="w-full" />
                             )}
                             {message.media.type === 'document' && (
-                              <div className="flex items-center gap-2 p-2 bg-gray-200 dark:bg-gray-600 rounded">
+                              <div className={`flex items-center gap-2 p-2 ${isOwnMessage ? 'bg-green-300' : 'bg-gray-300'} rounded`}>
                                 <FileText size={20} />
                                 <span className="text-sm">{message.media.filename}</span>
                               </div>
@@ -696,10 +697,14 @@ const Chat = () => {
                         
                         {/* Message Footer */}
                         <div className={`flex items-center gap-1 mt-1 ${isOwnMessage ? 'justify-end' : 'justify-start'}`}>
-                          <span className={`text-xs ${isOwnMessage ? 'text-gray-500' : 'text-gray-500'}`}>
+                          <span className={`text-xs ${isOwnMessage ? 'text-gray-600' : 'text-gray-500'}`}>
                             {formatTime(message.createdAt)}
                           </span>
-                          {isOwnMessage && getMessageStatusIcon(message)}
+                          {isOwnMessage && (
+                            <div className="ml-1">
+                              {getMessageStatusIcon(message)}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -709,10 +714,10 @@ const Chat = () => {
               
               {/* Typing Indicator */}
               {typingUsers.length > 0 && (
-                <div className="flex justify-start mb-1">
+                <div className="flex justify-start mb-2">
                   <div className="flex items-end gap-2 max-w-xs lg:max-w-md">
                     <div className="w-8"></div>
-                    <div className="bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded-2xl rounded-bl-sm">
+                    <div className="bg-gray-200 px-4 py-2 rounded-2xl rounded-bl-sm">
                       <div className="flex items-center gap-2">
                         <div className="flex gap-1">
                           <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
