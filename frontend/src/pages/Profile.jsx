@@ -55,17 +55,28 @@ const Profile = () => {
         });
 
         // Fetch user posts - only image posts
+        console.log('Current user:', user);
+        console.log('Fetching posts for user ID:', user._id);
         const postsResponse = await postsAPI.getPosts({ userId: user._id });
         const allPosts = postsResponse.data.posts || [];
         console.log('All posts:', allPosts.length);
-        console.log('All posts details:', allPosts.map(p => ({ id: p._id, text: p.text, mediaUrl: p.mediaUrl, mediaType: p.mediaType })));
+        console.log('All posts details:', allPosts.map(p => ({ 
+          id: p._id, 
+          text: p.text, 
+          mediaUrl: p.mediaUrl, 
+          mediaType: p.mediaType,
+          userId: p.user?._id,
+          username: p.user?.username 
+        })));
         
-        // Filter to show ONLY posts with images (exclude text-only posts)
+        // Filter to show ONLY posts with images AND belonging to current user
         const imagePosts = allPosts.filter(post => {
+          // Must belong to current user
+          const belongsToUser = post.user?._id === user._id || post.user?._id === user.id;
           // Must have mediaUrl AND mediaType must be 'image'
           const hasImage = post.mediaUrl && post.mediaType === 'image';
-          console.log(`Post ${post._id}: text="${post.text?.substring(0, 20)}...", hasImage=${hasImage}, mediaUrl=${post.mediaUrl}, mediaType=${post.mediaType}`);
-          return hasImage;
+          console.log(`Post ${post._id}: text="${post.text?.substring(0, 20)}...", belongsToUser=${belongsToUser}, hasImage=${hasImage}, mediaUrl=${post.mediaUrl}, mediaType=${post.mediaType}, postUserId=${post.user?._id}, currentUserId=${user._id}`);
+          return belongsToUser && hasImage;
         });
         
         console.log('Image posts after filter:', imagePosts.length);
@@ -117,13 +128,33 @@ const Profile = () => {
     };
   }, [showDeleteMenu]);
 
-  const formatLocation = (location) => {
-    if (!location) return 'Location not set';
-    if (typeof location === 'string' && location.includes(',')) {
-      // Extract city from coordinates if available
-      return 'Your City';
+  const formatLocation = (user) => {
+    if (!user) return 'Location not set';
+    
+    // Check for new address fields first (for backward compatibility)
+    const addressParts = [];
+    if (user.area) addressParts.push(user.area);
+    if (user.city) addressParts.push(user.city);
+    if (user.state) addressParts.push(user.state);
+    if (user.country) addressParts.push(user.country);
+    
+    if (addressParts.length > 0) {
+      return addressParts.join(', ');
     }
-    return location;
+    
+    // Use the location field (new format: comma-separated string)
+    if (user.location) {
+      if (typeof user.location === 'string' && user.location.includes(',')) {
+        // Check if it's coordinates (contains numbers and comma)
+        const coordsPattern = /^-?\d+\.?\d*,-?\d+\.?\d*$/;
+        if (coordsPattern.test(user.location.trim())) {
+          return 'Location set (coordinates)';
+        }
+      }
+      return user.location;
+    }
+    
+    return 'Location not set';
   };
 
   const getGoalTypeIcon = (type) => {
@@ -294,7 +325,7 @@ const Profile = () => {
                   <div className="flex items-center gap-2">
                     <MapPin className="w-4 h-4 text-green-600" />
                     <span className="text-gray-600 dark:text-gray-400">
-                      {formatLocation(user?.location)}
+                      {formatLocation(user)}
                     </span>
                   </div>
                 </div>

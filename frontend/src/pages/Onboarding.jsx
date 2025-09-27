@@ -1,4 +1,4 @@
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { userAPI } from "../utils/api";
@@ -7,38 +7,89 @@ import { useSnackbar } from "notistack";
 import { motion } from "framer-motion";
 import { ArrowRight, ArrowLeft, CheckCircle } from "lucide-react";
 import { getAllAvatars } from "../utils/avatarUtils";
+import { getCurrentLocationWithAddress } from "../utils/geocoding";
 
 const avatars = getAllAvatars();
 
 const Onboarding = () => {
-  const { register, handleSubmit, watch } = useForm();
+  const { register, handleSubmit, watch, setValue } = useForm();
   const [step, setStep] = useState(0);
   const [selectedAvatar, setSelectedAvatar] = useState("");
   const [location, setLocation] = useState("");
   const navigate = useNavigate();
-  const { login } = useContext(AuthContext);
+  const { login, user } = useContext(AuthContext);
   const { enqueueSnackbar } = useSnackbar();
 
   const steps = ["Choose Avatar", "Bio & Goals", "Preferences & Location"];
 
-  const getLocation = () => {
-    navigator.geolocation.getCurrentPosition(
-      (pos) => setLocation(`${pos.coords.latitude},${pos.coords.longitude}`),
-      () =>
-        enqueueSnackbar("Location access denied; enter manually.", {
-          variant: "warning",
-        })
-    );
+  // Prefill form data if user is editing profile
+  useEffect(() => {
+    if (user) {
+      setSelectedAvatar(user.avatar || "");
+      setValue("bio", user.bio || "");
+      setValue("goals", user.goals ? user.goals.join(", ") : "");
+      setValue("preferences", user.preferences ? user.preferences.join(", ") : "");
+      setValue("gender", user.gender || "");
+      setValue("genderPreference", user.genderPreference || "any");
+      
+      // Prefill location field - check for new format first, then fallback to old
+      let locationValue = "";
+      if (user.country || user.state || user.city || user.area || user.postalCode) {
+        // Build location string from separate fields
+        const parts = [];
+        if (user.country) parts.push(user.country);
+        if (user.city) parts.push(user.city);
+        if (user.area) parts.push(user.area);
+        if (user.postalCode) parts.push(user.postalCode);
+        locationValue = parts.join(", ");
+      } else if (user.location) {
+        locationValue = user.location;
+      }
+      
+      setLocation(locationValue);
+      setValue("location", locationValue);
+    }
+  }, [user, setValue]);
+
+  const getLocation = async () => {
+    try {
+      const { coordinates, address } = await getCurrentLocationWithAddress();
+      
+      // Format address as comma-separated string: Country, City, Area, Pincode
+      const locationParts = [];
+      if (address.country) locationParts.push(address.country);
+      if (address.city) locationParts.push(address.city);
+      if (address.area) locationParts.push(address.area);
+      if (address.postalCode) locationParts.push(address.postalCode);
+      
+      const locationString = locationParts.join(", ");
+      setLocation(locationString);
+      setValue("location", locationString);
+      
+      enqueueSnackbar("Location detected and filled automatically!", {
+        variant: "success",
+      });
+    } catch (error) {
+      console.error("Location error:", error);
+      enqueueSnackbar("Location access denied; please enter manually.", {
+        variant: "warning",
+      });
+    }
   };
 
   const onSubmit = async (data) => {
+    // Only submit if we're on the final step
+    if (step !== steps.length - 1) {
+      return;
+    }
+    
     try {
       const profileData = {
         avatar: selectedAvatar,
         bio: data.bio,
         goals: data.goals.split(",").map((g) => g.trim()),
         preferences: data.preferences.split(",").map((p) => p.trim()),
-        location: location || data.manualLocation,
+        location: data.location,
         gender: data.gender,
         genderPreference: data.genderPreference || "any",
         onboarded: true,
@@ -51,6 +102,7 @@ const Onboarding = () => {
       enqueueSnackbar("Onboarding failed", { variant: "error" });
     }
   };
+
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center px-4 py-10 transition-colors">
@@ -91,7 +143,7 @@ const Onboarding = () => {
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <div className="space-y-6">
           {/* Step 1: Avatar */}
           {step === 0 && (
             <motion.div
@@ -158,7 +210,7 @@ const Onboarding = () => {
                 <option value="">Select Gender</option>
                 <option value="male">Male</option>
                 <option value="female">Female</option>
-                <option value="non-binary">Non-Binary</option>
+                <option value="non-binary">Others </option>
                 <option value="prefer-not-to-say">Prefer Not to Say</option>
               </select>
             </motion.div>
@@ -186,19 +238,27 @@ const Onboarding = () => {
                 <option value="same">Same Gender</option>
                 <option value="opposite">Opposite Gender</option>
               </select>
-              <button
-                type="button"
-                onClick={getLocation}
-                className="px-4 py-2 rounded-lg border border-indigo-500 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-gray-700 transition"
-              >
-                Use Current Location
-              </button>
-              <input
-                value={location || watch("manualLocation")}
-                onChange={(e) => setLocation(e.target.value)}
-                placeholder="Manual Location"
-                className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
-              />
+              
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Location Details</h4>
+                
+                <button
+                  type="button"
+                  onClick={getLocation}
+                  className="w-full px-4 py-2 rounded-lg border border-indigo-500 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-gray-700 transition mb-4"
+                >
+                  Use Current Location
+                </button>
+                
+                <input
+                  {...register("location")}
+                  placeholder="Enter location as: Country, City, Area, Pincode (e.g., India, Mumbai, Bandra, 400050)"
+                  className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                />
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                  Format: Country, City, Area, Pincode
+                </p>
+              </div>
             </motion.div>
           )}
 
@@ -217,11 +277,24 @@ const Onboarding = () => {
             {step < steps.length - 1 ? (
               <button
                 type="button"
-                onClick={() => {
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  
+                  const formData = watch();
+                  
                   if (step === 0 && !selectedAvatar) {
                     enqueueSnackbar("Please select an avatar", { variant: "warning" });
                     return;
                   }
+                  
+                  if (step === 1) {
+                    if (!formData.bio || !formData.goals || !formData.gender) {
+                      enqueueSnackbar("Please fill in all required fields", { variant: "warning" });
+                      return;
+                    }
+                  }
+                  
                   setStep(step + 1);
                 }}
                 className="flex items-center gap-2 ml-auto px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition"
@@ -231,15 +304,16 @@ const Onboarding = () => {
               </button>
             ) : (
               <button
-                type="submit"
+                type="button"
+                onClick={handleSubmit(onSubmit)}
                 className="flex items-center gap-2 ml-auto px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 transition"
               >
-                Finish
+                {user ? "Update Profile" : "Finish"}
                 <CheckCircle size={18} />
               </button>
             )}
           </div>
-        </form>
+        </div>
       </motion.div>
     </div>
   );

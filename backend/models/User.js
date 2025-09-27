@@ -14,8 +14,11 @@ const userSchema = new mongoose.Schema({
   bio: { type: String },
   
   // Location & Preferences
-  city: { type: String },
+  country: { type: String },
   state: { type: String },
+  city: { type: String },
+  area: { type: String },
+  postalCode: { type: String },
   location: { type: String }, // Keep for backward compatibility
   geoLocation: {
     latitude: { type: Number },
@@ -82,6 +85,9 @@ userSchema.methods.getInitials = function() {
 userSchema.methods.getLocationString = function() {
   if (this.city && this.state) {
     return `${this.city}, ${this.state}`;
+  }
+  if (this.area && this.city) {
+    return `${this.area}, ${this.city}`;
   }
   return this.location || 'Location not specified';
 };

@@ -176,14 +176,20 @@ router.get('/', auth, async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const category = req.query.category;
+    const userId = req.query.userId;
     const skip = (page - 1) * limit;
 
     let query = {};
     if (category && category !== 'All') {
       query.category = category;
     }
+    if (userId) {
+      query.user = userId;
+    }
 
     console.log('Fetching posts with query:', query, 'page:', page, 'limit:', limit);
+    console.log('userId parameter:', userId);
+    console.log('category parameter:', category);
     
     const posts = await Post.find(query)
       .populate('user', 'username firstName lastName avatar')
