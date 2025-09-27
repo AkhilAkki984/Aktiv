@@ -24,7 +24,7 @@ router.get('/', auth, async (req, res) => {
     }
 
     const matches = await User.find(query).select('username preferences');
-    res.json(matches);
+    res.json({ data: matches });
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: 'Server error' });

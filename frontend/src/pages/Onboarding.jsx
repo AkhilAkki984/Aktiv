@@ -16,11 +16,27 @@ const Onboarding = () => {
   const [step, setStep] = useState(0);
   const [selectedAvatar, setSelectedAvatar] = useState("");
   const [location, setLocation] = useState("");
+  const [selectedPreference, setSelectedPreference] = useState("");
+  const [customPreference, setCustomPreference] = useState("");
   const navigate = useNavigate();
   const { login, user } = useContext(AuthContext);
   const { enqueueSnackbar } = useSnackbar();
 
   const steps = ["Choose Avatar", "Bio & Goals", "Preferences & Location"];
+  
+  const fitnessOptions = [
+    "Yoga",
+    "Gym", 
+    "Running",
+    "Tennis",
+    "Cycling",
+    "Jogging",
+    "Swimming",
+    "Pilates",
+    "Hiking",
+    "CrossFit",
+    "Other"
+  ];
 
   // Prefill form data if user is editing profile
   useEffect(() => {
@@ -28,22 +44,42 @@ const Onboarding = () => {
       setSelectedAvatar(user.avatar || "");
       setValue("bio", user.bio || "");
       setValue("goals", user.goals ? user.goals.join(", ") : "");
-      setValue("preferences", user.preferences ? user.preferences.join(", ") : "");
       setValue("gender", user.gender || "");
       setValue("genderPreference", user.genderPreference || "any");
+      
+      // Handle preferences prefilling
+      if (user.preferences && user.preferences.length > 0) {
+        const firstPreference = user.preferences[0];
+        if (fitnessOptions.includes(firstPreference)) {
+          setSelectedPreference(firstPreference);
+          setValue("preferences", firstPreference);
+        } else {
+          setSelectedPreference("Other");
+          setCustomPreference(firstPreference);
+          setValue("preferences", firstPreference);
+        }
+      }
       
       // Prefill location field - check for new format first, then fallback to old
       let locationValue = "";
       if (user.country || user.state || user.city || user.area || user.postalCode) {
-        // Build location string from separate fields
+        // Build location string from separate fields (excluding postal code)
         const parts = [];
         if (user.country) parts.push(user.country);
         if (user.city) parts.push(user.city);
         if (user.area) parts.push(user.area);
-        if (user.postalCode) parts.push(user.postalCode);
+        // Note: Excluding postalCode from the location string
         locationValue = parts.join(", ");
       } else if (user.location) {
-        locationValue = user.location;
+        // Remove postal code if it exists in the location string
+        const locationParts = user.location.split(',').map(part => part.trim());
+        const lastPart = locationParts[locationParts.length - 1];
+        if (lastPart && /^\d+$/.test(lastPart)) {
+          // Remove the postal code (last part)
+          locationValue = locationParts.slice(0, -1).join(', ');
+        } else {
+          locationValue = user.location;
+        }
       }
       
       setLocation(locationValue);
@@ -55,12 +91,12 @@ const Onboarding = () => {
     try {
       const { coordinates, address } = await getCurrentLocationWithAddress();
       
-      // Format address as comma-separated string: Country, City, Area, Pincode
+      // Format address as comma-separated string: Country, City, Area (no postal code)
       const locationParts = [];
       if (address.country) locationParts.push(address.country);
       if (address.city) locationParts.push(address.city);
       if (address.area) locationParts.push(address.area);
-      if (address.postalCode) locationParts.push(address.postalCode);
+      // Note: Excluding postalCode from the location string
       
       const locationString = locationParts.join(", ");
       setLocation(locationString);
@@ -84,11 +120,14 @@ const Onboarding = () => {
     }
     
     try {
+      // Determine the preference value
+      const preferenceValue = selectedPreference === "Other" ? customPreference : selectedPreference;
+      
       const profileData = {
         avatar: selectedAvatar,
         bio: data.bio,
         goals: data.goals.split(",").map((g) => g.trim()),
-        preferences: data.preferences.split(",").map((p) => p.trim()),
+        preferences: preferenceValue ? [preferenceValue] : [],
         location: data.location,
         gender: data.gender,
         genderPreference: data.genderPreference || "any",
@@ -223,12 +262,42 @@ const Onboarding = () => {
               animate={{ opacity: 1, y: 0 }}
               className="space-y-4"
             >
-              <input
-                {...register("preferences")}
-                placeholder="Preferences (jogging,yoga...)"
-                required
-                className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
-              />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Fitness Preference *
+                </label>
+                <select
+                  value={selectedPreference}
+                  onChange={(e) => {
+                    setSelectedPreference(e.target.value);
+                    if (e.target.value !== "Other") {
+                      setCustomPreference("");
+                      setValue("preferences", e.target.value);
+                    }
+                  }}
+                  className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white cursor-pointer focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="">Select your fitness preference</option>
+                  {fitnessOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+                
+                {selectedPreference === "Other" && (
+                  <input
+                    type="text"
+                    value={customPreference}
+                    onChange={(e) => {
+                      setCustomPreference(e.target.value);
+                      setValue("preferences", e.target.value);
+                    }}
+                    placeholder="Enter your custom fitness preference"
+                    className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 mt-3"
+                  />
+                )}
+              </div>
               <select
                 {...register("genderPreference")}
                 defaultValue="any"
@@ -252,11 +321,11 @@ const Onboarding = () => {
                 
                 <input
                   {...register("location")}
-                  placeholder="Enter location as: Country, City, Area, Pincode (e.g., India, Mumbai, Bandra, 400050)"
+                  placeholder="Enter location as: Country, City, Area (e.g., India, Mumbai, Bandra)"
                   className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
                 />
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                  Format: Country, City, Area, Pincode
+                  Format: Country, City, Area
                 </p>
               </div>
             </motion.div>
@@ -291,6 +360,13 @@ const Onboarding = () => {
                   if (step === 1) {
                     if (!formData.bio || !formData.goals || !formData.gender) {
                       enqueueSnackbar("Please fill in all required fields", { variant: "warning" });
+                      return;
+                    }
+                  }
+                  
+                  if (step === 2) {
+                    if (!selectedPreference || (selectedPreference === "Other" && !customPreference.trim())) {
+                      enqueueSnackbar("Please select or enter a fitness preference", { variant: "warning" });
                       return;
                     }
                   }

@@ -32,12 +32,13 @@ const FindPartners = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [partners, setPartners] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("find"); // 'find', 'pending'
+  const [activeTab, setActiveTab] = useState("find"); // 'find', 'pending', 'sent'
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState("all"); // 'all', 'local', 'virtual'
   const [counts, setCounts] = useState({
     availableCount: 0,
     pendingCount: 0,
+    sentCount: 0,
     totalCount: 0
   });
   const [countsLoading, setCountsLoading] = useState(true);
@@ -65,28 +66,55 @@ const FindPartners = () => {
       
       // Validate response data
       if (response.data && typeof response.data === 'object') {
-        console.log('Setting counts to:', response.data);
-        setCounts({
+        console.log('Backend counts response:', response.data);
+        const newCounts = {
           availableCount: response.data.availableCount || 0,
           pendingCount: response.data.pendingCount || 0,
+          sentCount: response.data.sentCount || 0,
           totalCount: response.data.totalCount || 0
-        });
+        };
+        console.log('Setting backend counts to:', newCounts);
+        setCounts(newCounts);
       } else {
         throw new Error('Invalid response format');
       }
     } catch (err) {
       console.error('Failed to fetch partner counts:', err);
       console.log('Setting default counts due to error');
-      // Set default counts on error with dummy data fallback
-      setCounts({
-        availableCount: getDummyPartners().length,
-        pendingCount: 2,
-        totalCount: getDummyPartners().length + 2
-      });
+      
+      // If backend fails, try to calculate counts from current data
+      const currentCounts = {
+        availableCount: 0,
+        pendingCount: 0,
+        sentCount: 0,
+        activeCount: 0,
+        totalCount: 0
+      };
+      
+      // Update based on current tab data if available
+      if (!loading && partners.length >= 0) {
+        if (activeTab === 'pending') {
+          currentCounts.pendingCount = partners.length;
+        } else if (activeTab === 'sent') {
+          currentCounts.sentCount = partners.length;
+        } else if (activeTab === 'find') {
+          currentCounts.availableCount = partners.length;
+        }
+      }
+      
+      setCounts(currentCounts);
     } finally {
       setCountsLoading(false);
       console.log('Counts loading set to false');
     }
+  };
+
+  // Update counts based on current data
+  const updateCountsFromData = () => {
+    setCounts(prev => ({
+      ...prev,
+      // Count will be updated based on actual data length
+    }));
   };
 
   // Fetch counts on component mount
@@ -99,6 +127,28 @@ const FindPartners = () => {
   useEffect(() => {
     console.log('Counts state changed:', counts);
   }, [counts]);
+
+  // Update counts based on actual data when partners change
+  useEffect(() => {
+    if (!loading && partners.length >= 0) {
+      setCounts(prev => {
+        const newCounts = { ...prev };
+        
+        // Update count based on current tab and data
+        // This ensures the tab count always reflects the actual data shown
+        if (activeTab === 'pending') {
+          newCounts.pendingCount = partners.length;
+        } else if (activeTab === 'sent') {
+          newCounts.sentCount = partners.length;
+        } else if (activeTab === 'find') {
+          newCounts.availableCount = partners.length;
+        }
+        
+        console.log(`Updated ${activeTab} count to ${partners.length}`, newCounts);
+        return newCounts;
+      });
+    }
+  }, [partners, activeTab, loading]);
 
   // Fetch partners data based on active tab
   useEffect(() => {
@@ -130,6 +180,9 @@ const FindPartners = () => {
             break;
           case 'pending':
             response = await partnersAPI.getPendingPartners(params);
+            break;
+          case 'sent':
+            response = await partnersAPI.getSentPartners(params);
             break;
           default:
             response = await partnersAPI.getAvailablePartners(params);
@@ -285,7 +338,19 @@ const FindPartners = () => {
       const response = await partnersAPI.connect(partnerId, { message: '' });
       enqueueSnackbar('Connection request sent!', { variant: 'success' });
       
-      // Refresh counts and current tab data
+      // Immediately remove the partner from the current list (Find Partners tab)
+      if (activeTab === 'find') {
+        setPartners(prev => prev.filter(partner => partner._id !== partnerId));
+        
+        // Update counts optimistically
+        setCounts(prev => ({
+          ...prev,
+          availableCount: Math.max(0, prev.availableCount - 1),
+          sentCount: (prev.sentCount || 0) + 1
+        }));
+      }
+      
+      // Refresh counts from backend to ensure accuracy
       await fetchCounts();
       setPagination(prev => ({ ...prev, currentPage: 1 }));
     } catch (err) {
@@ -299,7 +364,21 @@ const FindPartners = () => {
       await partnersAPI.cancelRequest(connectionId);
       enqueueSnackbar('Connection request cancelled', { variant: 'info' });
       
-      // Refresh counts and current tab data
+      // If on sent tab, remove the partner from the list immediately
+      if (activeTab === 'sent') {
+        setPartners(prev => prev.filter(partner => 
+          partner.connectionStatus?.connectionId !== connectionId
+        ));
+        
+        // Update counts optimistically
+        setCounts(prev => ({
+          ...prev,
+          sentCount: Math.max(0, (prev.sentCount || 0) - 1),
+          availableCount: (prev.availableCount || 0) + 1
+        }));
+      }
+      
+      // Refresh counts from backend to ensure accuracy
       await fetchCounts();
       setPagination(prev => ({ ...prev, currentPage: 1 }));
     } catch (err) {
@@ -498,7 +577,17 @@ const FindPartners = () => {
                   : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
               }`}
             >
-              Pending Requests ({counts.pendingCount || 0})
+              Pending Requests{(counts.pendingCount || 0) > 0 ? ` (${counts.pendingCount})` : ''}
+            </button>
+            <button
+              onClick={() => setActiveTab("sent")}
+              className={`pb-3 px-1 font-medium transition-colors ${
+                activeTab === "sent"
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+              }`}
+            >
+              Sent Invitations{(counts.sentCount || 0) > 0 ? ` (${counts.sentCount})` : ''}
             </button>
           </div>
         </motion.div>
@@ -663,6 +752,35 @@ const FindPartners = () => {
                 </h3>
                 <p className="text-gray-500 dark:text-gray-500">
                   You don't have any pending connection requests to review
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Sent Invitations Tab - Shows outgoing requests that are pending */}
+        {activeTab === "sent" && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {partners.length > 0 ? (
+              partners.map((partner, index) => (
+                <PartnerCard
+                  key={partner._id}
+                  partner={partner}
+                  onConnect={handleConnect}
+                  onCancelRequest={handleCancelRequest}
+                  onProfileClick={handleProfileClick}
+                  index={index}
+                  tabType="sent"
+                />
+              ))
+            ) : (
+              <div className="col-span-full text-center py-12">
+                <UserPlus className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-600 dark:text-gray-400 mb-2">
+                  No sent invitations
+                </h3>
+                <p className="text-gray-500 dark:text-gray-500">
+                  You haven't sent any connection requests yet
                 </p>
               </div>
             )}

@@ -150,6 +150,18 @@ const Profile = () => {
         if (coordsPattern.test(user.location.trim())) {
           return 'Location set (coordinates)';
         }
+        
+        // For comma-separated location strings, remove postal code (last part if it's numeric)
+        const locationParts = user.location.split(',').map(part => part.trim());
+        
+        // Check if last part is a postal code (numeric)
+        const lastPart = locationParts[locationParts.length - 1];
+        if (lastPart && /^\d+$/.test(lastPart)) {
+          // Remove the postal code (last part)
+          return locationParts.slice(0, -1).join(', ');
+        }
+        
+        return user.location;
       }
       return user.location;
     }
@@ -315,17 +327,23 @@ const Profile = () => {
 
               {/* About Section - Above Bio */}
               <div className="mb-3">
-                <div className="grid grid-cols-2 gap-4 text-xs">
+                <div className="grid grid-cols-1 gap-3 text-xs">
                   <div className="flex items-center gap-2">
                     <Target className="w-4 h-4 text-blue-600" />
                     <span className="text-gray-600 dark:text-gray-400">
-                      {user?.goals?.length > 0 ? user.goals.slice(0, 2).join(', ') : 'No goals set'}
+                      <strong>Goals:</strong> {user?.goals?.length > 0 ? user.goals.slice(0, 2).join(', ') : 'No goals set'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Heart className="w-4 h-4 text-purple-600" />
+                    <span className="text-gray-600 dark:text-gray-400">
+                      <strong>Preferred Activity:</strong> {user?.preferences?.length > 0 ? user.preferences.join(', ') : 'No preference set'}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <MapPin className="w-4 h-4 text-green-600" />
                     <span className="text-gray-600 dark:text-gray-400">
-                      {formatLocation(user)}
+                      <strong>Location:</strong> {formatLocation(user)}
                     </span>
                   </div>
                 </div>
@@ -416,6 +434,15 @@ const Profile = () => {
                           )}
                         </div>
 
+                        {/* Post Text Content */}
+                        {post.text && post.text.trim() && (
+                          <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20">
+                            <p className="text-sm text-gray-800 dark:text-gray-200 line-clamp-3 font-medium">
+                              {post.text}
+                            </p>
+                          </div>
+                        )}
+
                         {/* Post Image */}
                         <div className="relative">
                           <img
@@ -455,10 +482,10 @@ const Profile = () => {
                   <div className="text-center py-12">
                     <Grid3X3 size={48} className="mx-auto text-gray-300 dark:text-gray-600 mb-4" />
                     <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                      No image posts yet
+                      No posts yet
                     </h3>
                     <p className="text-gray-600 dark:text-gray-400 mb-6">
-                      Only posts with images are shown here. Text-only posts are not displayed.
+                      Posts with images are displayed here. Create your first post to get started!
                     </p>
                     <button
                       onClick={() => navigate('/feed')}

@@ -18,10 +18,11 @@ const Matches = () => {
     matchAPI
       .getMatches(filters)
       .then((res) => setMatches(res.data))
-      .catch(() =>
-        enqueueSnackbar("Failed to fetch matches", { variant: "error" })
-      );
-  }, [filters]);
+      .catch((error) => {
+        console.error("Failed to fetch matches:", error);
+        enqueueSnackbar("Failed to fetch matches", { variant: "error" });
+      });
+  }, [filters, enqueueSnackbar]);
 
   const handleFilterChange = (e) => {
     setFilters({ ...filters, [e.target.name]: e.target.value });

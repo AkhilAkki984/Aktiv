@@ -48,6 +48,27 @@ const PartnerCard = ({ partner, onConnect, onCancelRequest, onProfileClick, inde
       );
     }
 
+    // For Sent Invitations tab - show disabled "Sent" button and Cancel option
+    if (tabType === "sent") {
+      return (
+        <div className="flex gap-2">
+          <button
+            disabled
+            className="flex-1 flex items-center justify-center gap-2 py-2 px-4 bg-gray-400 text-white rounded-lg cursor-not-allowed font-medium"
+          >
+            <Clock className="w-4 h-4" />
+            Sent
+          </button>
+          <button
+            onClick={() => onCancelRequest(partner.connectionStatus?.connectionId)}
+            className="flex-1 flex items-center justify-center gap-2 py-2 px-4 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+          >
+            Cancel
+          </button>
+        </div>
+      );
+    }
+
     // For Active Partners tab - show Message button
     if (tabType === "active") {
       return (

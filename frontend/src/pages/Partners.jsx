@@ -23,9 +23,10 @@ const Partners = () => {
     matchAPI
       .getMatches({})
       .then((res) => setPartners(res.data))
-      .catch(() =>
-        enqueueSnackbar('Failed to fetch partners', { variant: 'error' })
-      );
+      .catch((error) => {
+        console.error('Failed to fetch partners:', error);
+        enqueueSnackbar('Failed to fetch partners', { variant: 'error' });
+      });
   }, [enqueueSnackbar]);
 
   const handleGoal = async () => {

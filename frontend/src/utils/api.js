@@ -140,6 +140,7 @@ export const partnersAPI = {
   getAvailablePartners: (params) => api.get("/partners", { params: { ...params, status: 'available' } }),
   getPendingPartners: (params) => api.get("/partners", { params: { ...params, status: 'pending' } }),
   getAcceptedPartners: (params) => api.get("/partners", { params: { ...params, status: 'accepted' } }),
+  getSentPartners: (params) => api.get("/partners", { params: { ...params, status: 'sent' } }),
   
   // Count endpoint
   getPartnerCounts: () => api.get("/partners/count"),
