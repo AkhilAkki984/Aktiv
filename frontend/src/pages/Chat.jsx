@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useContext } from "react";
+import { useNavigate } from "react-router-dom";
 import { useSnackbar } from "notistack";
 import { chatAPI, groupAPI, uploadAPI } from "../utils/api";
 import { AuthContext } from "../context/AuthContext";
@@ -32,6 +33,7 @@ import {
 const Chat = () => {
   const { user } = useContext(AuthContext);
   const { enqueueSnackbar } = useSnackbar();
+  const navigate = useNavigate();
   const {
     socket,
     isConnected,
@@ -120,10 +122,35 @@ const Chat = () => {
 
   // Fetch messages when chat is selected
   useEffect(() => {
-    if (selectedChat) {
-      fetchMessages(selectedChat._id);
-    }
+    if (!selectedChat) return;
+    // Avoid calling REST with temporary IDs (would cause CastError on server)
+    if (typeof selectedChat._id === 'string' && selectedChat._id.startsWith('temp_')) return;
+    fetchMessages(selectedChat._id);
   }, [selectedChat]);
+
+  const currentUserId = user?.id || user?._id;
+  const getOtherParticipantId = (chat) => {
+    if (!chat || chat.type === 'group') return null;
+    const parts = Array.isArray(chat.participants) ? chat.participants : [];
+    const other = parts.find(p => {
+      if (typeof p === 'string') return p !== currentUserId;
+      const pid = p?._id || p?.id;
+      return pid !== currentUserId;
+    });
+    if (!other) return null;
+    if (typeof other === 'string') return other;
+    // Fallbacks for various shapes
+    return (
+      other?._id ||
+      other?.id ||
+      chat?.otherParticipantId ||
+      chat?.otherUserId ||
+      chat?.userId ||
+      chat?.user?._id ||
+      chat?.partner?._id ||
+      null
+    );
+  };
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -150,6 +177,16 @@ const Chat = () => {
       setLoading(true);
       const response = await chatAPI.getConversations();
       setConversations(response.data);
+      // If we're on a temp chat, try to remap to the real conversation
+      if (selectedChat && typeof selectedChat._id === 'string' && selectedChat._id.startsWith('temp_')) {
+        const otherId = getOtherParticipantId(selectedChat);
+        if (otherId) {
+          const real = response.data.find(c => c.type !== 'group' && Array.isArray(c.participants) && c.participants.some(p => (p?._id || p?.id) === otherId));
+          if (real) {
+            setSelectedChat(real);
+          }
+        }
+      }
       
       // Calculate total unread count from conversations
       const total = response.data.reduce((sum, conv) => sum + (conv.unreadCount || 0), 0);
@@ -188,8 +225,17 @@ const Chat = () => {
     try {
       setSendingMessage(true);
       
+      const recipientId = getOtherParticipantId(selectedChat);
+      // If this is a new chat (temp id) and we can't resolve recipient, stop early
+      if ((typeof selectedChat._id === 'string' && selectedChat._id.startsWith('temp_')) && !recipientId) {
+        enqueueSnackbar('Unable to start chat: missing recipient. Please re-open the conversation.', { variant: 'error' });
+        setSendingMessage(false);
+        return;
+      }
+
       const messageData = {
         chatId: selectedChat._id,
+        recipientId,
         content: content || "",
         messageType: uploadedMedia ? uploadedMedia.mediaType : (mediaFile ? 'media' : 'text')
       };
@@ -559,9 +605,9 @@ const Chat = () => {
                       console.log('Group profile clicked');
                     } else {
                       // Navigate to user profile
-                      const otherParticipant = selectedChat.participants?.find(p => p._id !== user.id);
-                      if (otherParticipant) {
-                        window.location.href = `/profile/${otherParticipant._id}`;
+                      const otherId = getOtherParticipantId(selectedChat);
+                      if (otherId && otherId !== currentUserId) {
+                        navigate(`/profile/${otherId}`);
                       }
                     }
                   }}
@@ -575,9 +621,9 @@ const Chat = () => {
                         console.log('Group profile clicked');
                       } else {
                         // Navigate to user profile
-                        const otherParticipant = selectedChat.participants?.find(p => p._id !== user.id);
-                        if (otherParticipant) {
-                          window.location.href = `/profile/${otherParticipant._id}`;
+                        const otherId = getOtherParticipantId(selectedChat);
+                        if (otherId && otherId !== currentUserId) {
+                          navigate(`/profile/${otherId}`);
                         }
                       }
                     }}

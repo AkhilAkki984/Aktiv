@@ -27,6 +27,9 @@ const PostCard = ({ post, onUpdate, socket }) => {
   const [shareText, setShareText] = useState('');
   const [isSharing, setIsSharing] = useState(false);
   const [showActions, setShowActions] = useState(false);
+  // Simple click animations
+  const [likeAnimate, setLikeAnimate] = useState(false);
+  const [congratsAnimate, setCongratsAnimate] = useState(false);
 
   const categoryColors = {
     'Fitness': 'bg-red-100 text-red-800 border-red-200',
@@ -39,13 +42,35 @@ const PostCard = ({ post, onUpdate, socket }) => {
   };
 
   const goToProfile = () => {
-    const target = isOwnPost ? '/profile' : `/profile/${post.user._id}`;
-    navigate(target);
+    // If it's the current user's own post, do not navigate anywhere
+    if (isOwnPost) return;
+    navigate(`/profile/${post.user._id}`);
   };
 
-  const isLiked = post.likes?.some(like => like.user._id === user.id);
-  const isCongratulated = post.congratulations?.some(congrats => congrats.user._id === user.id);
-  const isOwnPost = post.user._id === user.id;
+  const currentUserId = user.id || user._id;
+  const isLiked = Array.isArray(post.likes) && post.likes.some(like => {
+    const likeUser = like?.user;
+    if (!likeUser) return false;
+    // If not populated, likeUser may be a string/ObjectId
+    if (typeof likeUser === 'string') return likeUser === currentUserId;
+    if (typeof likeUser === 'object') {
+      // Handle populated object with _id or a raw ObjectId
+      const id = likeUser._id || likeUser.id || likeUser;
+      return (typeof id === 'string' ? id : id?.toString?.()) === currentUserId;
+    }
+    return false;
+  });
+  const isCongratulated = Array.isArray(post.congratulations) && post.congratulations.some(congrats => {
+    const congratsUser = congrats?.user;
+    if (!congratsUser) return false;
+    if (typeof congratsUser === 'string') return congratsUser === currentUserId;
+    if (typeof congratsUser === 'object') {
+      const id = congratsUser._id || congratsUser.id || congratsUser;
+      return (typeof id === 'string' ? id : id?.toString?.()) === currentUserId;
+    }
+    return false;
+  });
+  const isOwnPost = post?.user?._id === (user?.id || user?._id);
 
   const formatTime = (timestamp) => {
     const date = new Date(timestamp);
@@ -60,6 +85,9 @@ const PostCard = ({ post, onUpdate, socket }) => {
   };
 
   const handleLike = async () => {
+    // trigger a brief icon scale animation
+    setLikeAnimate(true);
+    setTimeout(() => setLikeAnimate(false), 200);
     try {
       const { data } = await postsAPI.likePost(post._id);
       
@@ -166,6 +194,9 @@ const PostCard = ({ post, onUpdate, socket }) => {
   };
 
   const handleCongratulate = async () => {
+    // trigger a brief icon scale animation
+    setCongratsAnimate(true);
+    setTimeout(() => setCongratsAnimate(false), 200);
     try {
       const { data } = await postsAPI.congratulatePost(post._id);
       
@@ -349,7 +380,10 @@ const PostCard = ({ post, onUpdate, socket }) => {
                   : 'text-gray-500 hover:text-red-500 dark:text-gray-400 dark:hover:text-red-400'
               }`}
             >
-              <Heart size={18} className={isLiked ? 'fill-current' : ''} />
+              <Heart
+                size={18}
+                className={`${isLiked ? 'fill-current' : ''} ${likeAnimate ? 'scale-125' : ''} transform transition-transform duration-150`}
+              />
               <span className="text-sm font-medium">{post.likeCount || 0}</span>
             </button>
 
@@ -377,7 +411,10 @@ const PostCard = ({ post, onUpdate, socket }) => {
                   : 'text-gray-500 hover:text-yellow-500 dark:text-gray-400 dark:hover:text-yellow-400'
               }`}
             >
-              <PartyPopper size={18} className={isCongratulated ? 'fill-current' : ''} />
+              <PartyPopper
+                size={18}
+                className={`${isCongratulated ? 'fill-current' : ''} ${congratsAnimate ? 'scale-125' : ''} transform transition-transform duration-150`}
+              />
               <span className="text-sm font-medium">{post.congratulationsCount || 0}</span>
             </button>
           </div>

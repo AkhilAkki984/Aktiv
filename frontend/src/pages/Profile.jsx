@@ -443,12 +443,14 @@ const Profile = () => {
 
                                 {/* Content clickable */}
                                 <div onClick={() => handlePostClick(post)} className="cursor-pointer select-none">
-                                  {post.mediaUrl && (
-                                    <img src={post.mediaUrl} alt="Post media" className="w-full max-h-56 object-cover" />
-                                  )}
                                   {post.text && (
-                                    <div className="p-3 border-t border-gray-100 dark:border-gray-700">
+                                    <div className="p-3">
                                       <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap line-clamp-4">{post.text}</p>
+                                    </div>
+                                  )}
+                                  {post.mediaUrl && (
+                                    <div className="border-t border-gray-100 dark:border-gray-700">
+                                      <img src={post.mediaUrl} alt="Post media" className="w-full max-h-56 object-cover" />
                                     </div>
                                   )}
                                 </div>
@@ -512,7 +514,22 @@ const Profile = () => {
                                   </div>
                                 </div>
                               </div>
-                              <button onClick={() => handleDeletePost(post._id)} className="text-xs text-red-600 hover:underline cursor-pointer">Delete</button>
+                              <div className="relative group">
+                                <button
+                                  className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400"
+                                  aria-label="More options"
+                                >
+                                  <MoreVertical size={18} />
+                                </button>
+                                <div className="absolute right-0 mt-2 w-28 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg hidden group-hover:block z-10">
+                                  <button
+                                    onClick={() => handleDeletePost(post._id)}
+                                    className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md"
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              </div>
                             </div>
 
                             {/* Text first */}

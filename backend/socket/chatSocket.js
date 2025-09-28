@@ -47,6 +47,7 @@ export const initializeChatSocket = (io) => {
     socket.on('send_message', async (data) => {
       try {
         const { chatId, content, media, messageType = 'text', replyTo } = data;
+        const recipientIdFromClient = data.recipientId; // optional for creating new direct chat
         
         if (!chatId || (!content && !media)) {
           return socket.emit('error', { message: 'Invalid message data' });
@@ -81,8 +82,23 @@ export const initializeChatSocket = (io) => {
           chat = group;
         } else {
           // Direct message
-          const directChat = await Chat.findById(chatId);
-          if (!directChat || !directChat.participants.includes(socket.userId)) {
+          const resolvedChatId = chatId.startsWith('temp_') ? chatId.replace('temp_', '') : chatId;
+          let directChat = null;
+          if (resolvedChatId && resolvedChatId.length === 24) {
+            directChat = await Chat.findById(resolvedChatId);
+          }
+          // If not found, try to create/find using recipientId from client
+          if (!directChat && recipientIdFromClient) {
+            try {
+              directChat = await Chat.findOrCreateDirectChat(socket.userId, recipientIdFromClient);
+            } catch (e) {
+              console.error('Failed to find/create direct chat:', e);
+            }
+          }
+          if (!directChat) {
+            return socket.emit('error', { message: 'Chat not found or access denied' });
+          }
+          if (!directChat.participants || !directChat.participants.some(p => p?.toString() === socket.userId)) {
             return socket.emit('error', { message: 'Chat not found or access denied' });
           }
 
@@ -116,7 +132,7 @@ export const initializeChatSocket = (io) => {
           status: message.status,
           replyTo: message.replyTo,
           createdAt: message.createdAt,
-          chatId: chatId
+          chatId: (chat?._id?.toString?.()) || chatId
         };
 
         if (isGroupMessage) {
@@ -215,8 +231,9 @@ export const initializeChatSocket = (io) => {
           });
         } else {
           // Direct message typing - send only to recipient
-          const chat = await Chat.findById(conversationId);
-          if (!chat || !chat.participants.includes(socket.userId)) {
+          const resolvedConvId = conversationId.startsWith('temp_') ? conversationId.replace('temp_', '') : conversationId;
+          const chat = await Chat.findById(resolvedConvId);
+          if (!chat || !chat.participants || !chat.participants.some(p => p?.toString() === socket.userId)) {
             return socket.emit('error', { message: 'Chat not found or access denied' });
           }
 
@@ -263,7 +280,8 @@ export const initializeChatSocket = (io) => {
           const groupId = chatId.replace('group_', '');
           chat = await Group.findById(groupId);
         } else {
-          chat = await Chat.findById(chatId);
+          const resolvedMarkId = chatId.startsWith('temp_') ? chatId.replace('temp_', '') : chatId;
+          chat = await Chat.findById(resolvedMarkId);
         }
 
         if (chat && messageId) {

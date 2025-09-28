@@ -50,6 +50,17 @@ export const useSocket = () => {
 
     newSocket.on('error', (error) => {
       console.error('Socket error:', error);
+      try {
+        console.error('Error details:', {
+          message: error?.message,
+          code: error?.code,
+          type: error?.type,
+          description: error?.description,
+          data: error?.data,
+        });
+      } catch (e) {
+        // noop
+      }
     });
 
     // Handle authentication errors specifically
@@ -136,11 +147,13 @@ export const useSocket = () => {
   };
 
   const startTyping = (chatId) => {
-    emit('typing', { chatId, isTyping: true });
+    if (typeof chatId === 'string' && chatId.startsWith('temp_')) return;
+    emit('typing', { conversationId: chatId, isGroup: false, isTyping: true });
   };
 
   const stopTyping = (chatId) => {
-    emit('typing', { chatId, isTyping: false });
+    if (typeof chatId === 'string' && chatId.startsWith('temp_')) return;
+    emit('typing', { conversationId: chatId, isGroup: false, isTyping: false });
   };
 
   const markAsRead = (chatId, messageId) => {

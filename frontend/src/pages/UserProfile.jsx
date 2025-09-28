@@ -39,6 +39,13 @@ const UserProfile = () => {
   const [userPosts, setUserPosts] = useState([]);
   const [loadingPosts, setLoadingPosts] = useState(false);
 
+  // Count only image posts for display
+  const imagePostsCount = React.useMemo(() => {
+    return Array.isArray(userPosts)
+      ? userPosts.filter(p => !p?.isShared && p?.mediaUrl && p?.mediaType === 'image').length
+      : 0;
+  }, [userPosts]);
+
   // Helpers
   const stripPostalCode = (loc) => {
     if (!loc || typeof loc !== 'string') return loc || '';
@@ -61,6 +68,14 @@ const UserProfile = () => {
     }
     if (typeof pu?.preferences === 'string' && pu.preferences.trim()) {
       return pu.preferences.trim();
+    }
+    // Fallback: if bio looks like a short activity word/phrase, use it as preferred activity
+    if (typeof pu?.bio === 'string') {
+      const bio = pu.bio.trim();
+      // Heuristic: up to 3 words and <= 30 chars
+      if (bio && bio.split(/\s+/).length <= 3 && bio.length <= 30) {
+        return bio;
+      }
     }
     return null;
   };
@@ -353,7 +368,7 @@ const UserProfile = () => {
                 </h1>
                 {/* Inline counts */}
                 <div className="hidden md:flex items-center gap-4 text-sm text-gray-600 dark:text-gray-300">
-                  <span><span className="font-semibold">{profileUser.postsCount || 0}</span> posts</span>
+                  <span><span className="font-semibold">{imagePostsCount}</span> posts</span>
                   <span><span className="font-semibold">{profileUser.connectionCount || 0}</span> connections</span>
                 </div>
               </div>
