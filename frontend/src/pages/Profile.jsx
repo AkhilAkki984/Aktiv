@@ -18,7 +18,9 @@ import {
   MoreVertical,
   Trash2,
   X,
-  Eye
+  Eye,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 const Profile = () => {
@@ -32,12 +34,15 @@ const Profile = () => {
     connectionsCount: 0,
     mentionsCount: 0
   });
-  const [userPosts, setUserPosts] = useState([]);
+  const [userPosts, setUserPosts] = useState([]); // image posts
+  const [userTextPosts, setUserTextPosts] = useState([]); // text-only posts
   const [userMentions, setUserMentions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedPost, setSelectedPost] = useState(null);
   const [showPostModal, setShowPostModal] = useState(false);
   const [showDeleteMenu, setShowDeleteMenu] = useState(null);
+  const [showAllPosts, setShowAllPosts] = useState(false);
+  const [previewIndex, setPreviewIndex] = useState(0);
 
   // Fetch user data
   useEffect(() => {
@@ -69,7 +74,7 @@ const Profile = () => {
           username: p.user?.username 
         })));
         
-        // Filter to show ONLY posts with images AND belonging to current user
+        // Split posts into image posts and text-only posts, only current user's
         const imagePosts = allPosts.filter(post => {
           // Must belong to current user
           const belongsToUser = post.user?._id === user._id || post.user?._id === user.id;
@@ -78,10 +83,18 @@ const Profile = () => {
           console.log(`Post ${post._id}: text="${post.text?.substring(0, 20)}...", belongsToUser=${belongsToUser}, hasImage=${hasImage}, mediaUrl=${post.mediaUrl}, mediaType=${post.mediaType}, postUserId=${post.user?._id}, currentUserId=${user._id}`);
           return belongsToUser && hasImage;
         });
+        const textOnlyPosts = allPosts
+          .filter(post => {
+            const belongsToUser = post.user?._id === user._id || post.user?._id === user.id;
+            const noMedia = !post.mediaUrl && (!post.mediaType || post.mediaType === 'text');
+            return belongsToUser && noMedia && post.text && post.text.trim();
+          })
+          .sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
         
         console.log('Image posts after filter:', imagePosts.length);
         console.log('Image posts details:', imagePosts.map(p => ({ id: p._id, text: p.text, mediaUrl: p.mediaUrl, mediaType: p.mediaType })));
         setUserPosts(imagePosts);
+        setUserTextPosts(textOnlyPosts);
 
         // Mock mentions data (you can replace with actual API call)
         setUserMentions([
@@ -250,6 +263,12 @@ const Profile = () => {
     return date.toLocaleDateString();
   };
 
+  // Combined posts: images + text-only, newest first
+  const combinedPosts = React.useMemo(() => {
+    const list = [...userPosts, ...userTextPosts];
+    return list.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+  }, [userPosts, userTextPosts]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
@@ -396,88 +415,130 @@ const Profile = () => {
           <div className="p-6">
             {activeTab === 'posts' && (
               <div className="transition-all duration-300">
-                {userPosts.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {userPosts.map((post) => (
-                      <div
-                        key={post._id}
-                        className="relative bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden cursor-pointer hover:shadow-md transition-all duration-200"
-                        onClick={() => handlePostClick(post)}
-                      >
-                        {/* Delete Menu */}
-                        <div className="absolute top-3 right-3 z-10 delete-menu-container">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              console.log('Delete menu clicked for post:', post._id);
-                              setShowDeleteMenu(showDeleteMenu === post._id ? null : post._id);
-                            }}
-                            className="p-2 rounded-full bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm hover:bg-white dark:hover:bg-gray-700 transition-colors cursor-pointer shadow-sm"
-                          >
-                            <MoreVertical size={16} className="text-gray-600 dark:text-gray-400" />
-                          </button>
-                          
-                          {showDeleteMenu === post._id && (
-                            <div className="absolute right-0 top-10 bg-white dark:bg-gray-700 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600 py-1 z-20 min-w-[120px]">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  console.log('Delete button clicked for post:', post._id);
-                                  handleDeletePost(post._id);
-                                }}
-                                className="flex items-center gap-2 w-full px-4 py-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer transition-colors text-sm"
-                              >
-                                <Trash2 size={16} />
-                                Delete
-                              </button>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Post Text Content */}
-                        {post.text && post.text.trim() && (
-                          <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20">
-                            <p className="text-sm text-gray-800 dark:text-gray-200 line-clamp-3 font-medium">
-                              {post.text}
-                            </p>
-                          </div>
-                        )}
-
-                        {/* Post Image */}
-                        <div className="relative">
-                          <img
-                            src={post.mediaUrl}
-                            alt="Post media"
-                            className="w-full h-64 object-cover"
-                          />
-                          
-                          {/* Category Badge Overlay */}
-                          <div className="absolute top-3 left-3">
-                            <span className={`text-xs px-2 py-1 rounded-full border backdrop-blur-sm ${categoryColors[post.category] || categoryColors['General']}`}>
-                              {post.category}
-                            </span>
-                          </div>
-
-                          {/* Hover Overlay with Stats */}
-                          <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
-                            <div className="text-white text-center">
-                              <div className="flex items-center gap-4">
-                                <div className="flex items-center gap-1">
-                                  <Heart size={16} className="fill-current" />
-                                  <span className="text-sm font-medium">{post.likeCount || 0}</span>
+                {combinedPosts.length > 0 ? (
+                  <>
+                    {/* Preview mode: two-card carousel with arrows */}
+                    {!showAllPosts && (
+                      <div className="relative">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {[0, 1].map((offset) => {
+                            const idx = (previewIndex + offset) % combinedPosts.length;
+                            const post = combinedPosts[idx];
+                            if (!post) return null;
+                            return (
+                              <div key={post._id || idx} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+                                {/* Header */}
+                                <div className="p-3 flex items-center gap-3">
+                                  <img src={getAvatarSrc(user?.avatar, user?.username)} alt={user?.username} className="w-8 h-8 rounded-full object-cover" />
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{user?.username}</p>
+                                    <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                      <span>{new Date(post.createdAt).toLocaleDateString()}</span>
+                                      {post.category && (
+                                        <span className={`px-2 py-0.5 rounded-full border ${categoryColors[post.category] || categoryColors['General']}`}>{post.category}</span>
+                                      )}
+                                    </div>
+                                  </div>
                                 </div>
-                                <div className="flex items-center gap-1">
-                                  <MessageSquare size={16} />
-                                  <span className="text-sm font-medium">{post.commentCount || 0}</span>
+
+                                {/* Content clickable */}
+                                <div onClick={() => handlePostClick(post)} className="cursor-pointer select-none">
+                                  {post.mediaUrl && (
+                                    <img src={post.mediaUrl} alt="Post media" className="w-full max-h-56 object-cover" />
+                                  )}
+                                  {post.text && (
+                                    <div className="p-3 border-t border-gray-100 dark:border-gray-700">
+                                      <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap line-clamp-4">{post.text}</p>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Footer */}
+                                <div className="px-3 py-2 flex items-center gap-6 text-gray-600 dark:text-gray-400 text-xs">
+                                  <div className="flex items-center gap-1"><Heart size={14} />{post.likeCount || 0}</div>
+                                  <div className="flex items-center gap-1"><MessageSquare size={14} />{post.commentCount || 0}</div>
                                 </div>
                               </div>
-                              <p className="text-xs mt-2 opacity-80">Click to view</p>
-                            </div>
-                          </div>
+                            );
+                          })}
+                        </div>
+
+                        {combinedPosts.length > 1 && (
+                          <>
+                            <button
+                              onClick={() => setPreviewIndex((i) => (i - 1 + combinedPosts.length) % combinedPosts.length)}
+                              className="hidden md:flex items-center justify-center absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-800/80 text-white hover:bg-gray-800 cursor-pointer"
+                              aria-label="Previous"
+                            >
+                              <ChevronLeft size={18} />
+                            </button>
+                            <button
+                              onClick={() => setPreviewIndex((i) => (i + 1) % combinedPosts.length)}
+                              className="hidden md:flex items-center justify-center absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-800/80 text-white hover:bg-gray-800 cursor-pointer"
+                              aria-label="Next"
+                            >
+                              <ChevronRight size={18} />
+                            </button>
+                          </>
+                        )}
+
+                        <div className="mt-6 text-center">
+                          <button
+                            onClick={() => setShowAllPosts(true)}
+                            className="px-5 py-2 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors cursor-pointer"
+                          >
+                            Show all posts →
+                          </button>
                         </div>
                       </div>
-                    ))}
-                  </div>
+                    )}
+
+                    {/* Full view: single-column vertical feed with text above image */}
+                    {showAllPosts && (
+                      <div className="space-y-6">
+                        {combinedPosts.map((post) => (
+                          <div key={post._id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+                            {/* Header */}
+                            <div className="p-4 flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <img src={getAvatarSrc(user?.avatar, user?.username)} alt={user?.username} className="w-8 h-8 rounded-full object-cover" />
+                                <div className="min-w-0">
+                                  <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{user?.username}</p>
+                                  <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                    <span>{new Date(post.createdAt).toLocaleDateString()}</span>
+                                    {post.category && (
+                                      <span className={`px-2 py-0.5 rounded-full border ${categoryColors[post.category] || categoryColors['General']}`}>{post.category}</span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              <button onClick={() => handleDeletePost(post._id)} className="text-xs text-red-600 hover:underline cursor-pointer">Delete</button>
+                            </div>
+
+                            {/* Text first */}
+                            {post.text && (
+                              <div className="px-4 pb-2">
+                                <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{post.text}</p>
+                              </div>
+                            )}
+
+                            {/* Image container (object-contain to avoid cropping) */}
+                            {post.mediaUrl && (
+                              <div onClick={() => handlePostClick(post)} className="w-full bg-gray-50 dark:bg-gray-900 flex items-center justify-center cursor-pointer">
+                                <img src={post.mediaUrl} alt="Post media" className="max-h-80 md:max-h-96 w-auto object-contain" />
+                              </div>
+                            )}
+
+                            {/* Footer */}
+                            <div className="px-4 py-3 flex items-center gap-6 text-gray-600 dark:text-gray-400 text-sm">
+                              <div className="flex items-center gap-1"><Heart size={16} />{post.likeCount || 0}</div>
+                              <div className="flex items-center gap-1"><MessageSquare size={16} />{post.commentCount || 0}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <div className="text-center py-12">
                     <Grid3X3 size={48} className="mx-auto text-gray-300 dark:text-gray-600 mb-4" />

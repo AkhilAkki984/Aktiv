@@ -13,6 +13,7 @@ import {
   Edit3,
   ExternalLink
 } from 'lucide-react';
+import { postsAPI } from '../utils/api';
 
 const PostCard = ({ post, onUpdate, socket }) => {
   const { user } = useContext(AuthContext);
@@ -37,6 +38,11 @@ const PostCard = ({ post, onUpdate, socket }) => {
     'General': 'bg-gray-100 text-gray-800 border-gray-200'
   };
 
+  const goToProfile = () => {
+    const target = isOwnPost ? '/profile' : `/profile/${post.user._id}`;
+    navigate(target);
+  };
+
   const isLiked = post.likes?.some(like => like.user._id === user.id);
   const isCongratulated = post.congratulations?.some(congrats => congrats.user._id === user.id);
   const isOwnPost = post.user._id === user.id;
@@ -55,17 +61,7 @@ const PostCard = ({ post, onUpdate, socket }) => {
 
   const handleLike = async () => {
     try {
-      const response = await fetch(`/api/posts/${post._id}/like`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-
-      if (!response.ok) throw new Error('Failed to like post');
-
-      const data = await response.json();
+      const { data } = await postsAPI.likePost(post._id);
       
       // Emit socket event
       if (socket) {
@@ -91,18 +87,7 @@ const PostCard = ({ post, onUpdate, socket }) => {
 
     try {
       setIsCommenting(true);
-      const response = await fetch(`/api/posts/${post._id}/comment`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({ text: commentText })
-      });
-
-      if (!response.ok) throw new Error('Failed to add comment');
-
-      const data = await response.json();
+      const { data } = await postsAPI.commentPost(post._id, { text: commentText });
       
       // Ensure the comment has the correct user data
       const updatedComments = data.comments.map(comment => {
@@ -153,18 +138,7 @@ const PostCard = ({ post, onUpdate, socket }) => {
 
     try {
       setIsSharing(true);
-      const response = await fetch(`/api/posts/${post._id}/share`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({ text: shareText })
-      });
-
-      if (!response.ok) throw new Error('Failed to share post');
-
-      const sharedPost = await response.json();
+      const { data: sharedPost } = await postsAPI.sharePost(post._id, { text: shareText });
       
       // Emit socket event
       if (socket) {
@@ -193,17 +167,7 @@ const PostCard = ({ post, onUpdate, socket }) => {
 
   const handleCongratulate = async () => {
     try {
-      const response = await fetch(`/api/posts/${post._id}/congratulate`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-
-      if (!response.ok) throw new Error('Failed to congratulate');
-
-      const data = await response.json();
+      const { data } = await postsAPI.congratulatePost(post._id);
       
       // Emit socket event
       if (socket) {
@@ -228,14 +192,7 @@ const PostCard = ({ post, onUpdate, socket }) => {
     if (!window.confirm('Are you sure you want to delete this post?')) return;
 
     try {
-      const response = await fetch(`/api/posts/${post._id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-
-      if (!response.ok) throw new Error('Failed to delete post');
+      await postsAPI.deletePost(post._id);
 
       if (onUpdate) {
         onUpdate(post._id, null); // Remove from feed
@@ -258,12 +215,12 @@ const PostCard = ({ post, onUpdate, socket }) => {
               src={getAvatarSrc(post.user.avatar, post.user.username)}
               alt={post.user.username}
               className="w-10 h-10 rounded-full object-cover cursor-pointer"
-              onClick={() => navigate(`/profile/${post.user._id}`)}
+              onClick={goToProfile}
             />
             <div>
               <h3
                 className="font-semibold text-gray-900 dark:text-white cursor-pointer hover:underline"
-                onClick={() => navigate(`/profile/${post.user._id}`)}
+                onClick={goToProfile}
                 title={`View ${post.user.username}'s profile`}
               >
                 {post.user.username || `${post.user.firstName || ''} ${post.user.lastName || ''}`.trim()}

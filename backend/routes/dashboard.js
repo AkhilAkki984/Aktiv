@@ -27,14 +27,14 @@ router.get('/stats', auth, async (req, res) => {
       })
       .select('-password');
 
+    if (!currentUser) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
     console.log('Current User:', currentUser.username);
     console.log('User Check-ins Count:', currentUser.checkIns.length);
     console.log('User Check-ins:', currentUser.checkIns);
     console.log('User Connection Count:', currentUser.connectionCount);
-
-    if (!currentUser) {
-      return res.status(404).json({ msg: 'User not found' });
-    }
 
     // Get all partner goals where user is involved
     const partnerGoals = await PartnerGoal.find({
@@ -123,28 +123,38 @@ router.get('/stats', auth, async (req, res) => {
     // Calculate current streak from goals (real data)
     let currentStreak = 0;
     const allCheckInDates = [];
-    
-    // Collect all check-in dates from all goals
+
+    // Collect all check-in dates (normalized to date string) from all goals
     userGoals.forEach(goal => {
       if (goal.checkIns) {
         goal.checkIns.forEach(checkIn => {
-          allCheckInDates.push(new Date(checkIn.date).toDateString());
+          const d = new Date(checkIn.date);
+          d.setHours(0, 0, 0, 0);
+          allCheckInDates.push(d.toDateString());
         });
       }
     });
-    
-    // Sort dates and get unique dates
+
+    // Unique, sorted (most recent first)
     const uniqueDates = [...new Set(allCheckInDates)].sort((a, b) => new Date(b) - new Date(a));
-    
-    // Calculate consecutive streak
-    for (let i = 0; i < uniqueDates.length; i++) {
-      const currentDate = new Date(uniqueDates[i]);
-      const expectedDate = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-      
-      if (currentDate.toDateString() === expectedDate.toDateString()) {
-        currentStreak++;
-      } else {
-        break;
+
+    // If there are no check-ins, streak remains 0
+    if (uniqueDates.length > 0) {
+      // Base the streak on the most recent check-in date, not necessarily today
+      const latest = new Date(uniqueDates[0]);
+      latest.setHours(0, 0, 0, 0);
+
+      for (let i = 0; i < uniqueDates.length; i++) {
+        const expected = new Date(latest.getTime() - i * 24 * 60 * 60 * 1000);
+        expected.setHours(0, 0, 0, 0);
+        const current = new Date(uniqueDates[i]);
+        current.setHours(0, 0, 0, 0);
+
+        if (current.toDateString() === expected.toDateString()) {
+          currentStreak++;
+        } else {
+          break;
+        }
       }
     }
     

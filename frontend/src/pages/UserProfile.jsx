@@ -2,26 +2,25 @@ import React, { useContext, useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ThemeContext } from "../context/ThemeContext.jsx";
 import { AuthContext } from "../context/AuthContext.jsx";
-import { partnersAPI } from "../utils/api.js";
+import { partnersAPI, postsAPI } from "../utils/api.js";
 import { useSnackbar } from "notistack";
 import { getAvatarSrc } from "../utils/avatarUtils";
+import { useSocket } from "../hooks/useSocket";
+import PostCard from "../components/PostCard";
 import {
   Sun,
   Moon,
   Bell,
   ArrowLeft,
   MapPin,
-  Calendar,
   Users,
   MessageCircle,
   UserPlus,
   ChevronDown,
   LogOut,
   Edit3,
-  Globe,
   Target,
   Image,
-  Video,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -31,11 +30,50 @@ const UserProfile = () => {
   const { mode, toggleMode } = useContext(ThemeContext);
   const { user: currentUser, logout } = useContext(AuthContext);
   const { enqueueSnackbar } = useSnackbar();
+  const { socket } = useSocket();
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileUser, setProfileUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('posts'); // 'posts', 'connections', 'requests'
+  const [activeTab, setActiveTab] = useState('posts'); // 'posts', 'mentions'
+  const [userPosts, setUserPosts] = useState([]);
+  const [loadingPosts, setLoadingPosts] = useState(false);
+
+  // Helpers
+  const stripPostalCode = (loc) => {
+    if (!loc || typeof loc !== 'string') return loc || '';
+    const parts = loc.split(',').map(p => p.trim());
+    if (parts.length === 0) return loc;
+    const last = parts[parts.length - 1];
+    // Remove last segment if it's purely digits (postal code)
+    if (/^\d+$/.test(last)) {
+      return parts.slice(0, -1).join(', ');
+    }
+    return loc;
+  };
+
+  const getPreferredActivity = (pu) => {
+    if (pu?.preferredActivity && typeof pu.preferredActivity === 'string') {
+      return pu.preferredActivity;
+    }
+    if (Array.isArray(pu?.preferences) && pu.preferences.length > 0) {
+      return pu.preferences[0];
+    }
+    if (typeof pu?.preferences === 'string' && pu.preferences.trim()) {
+      return pu.preferences.trim();
+    }
+    return null;
+  };
+
+  const getPreferencesList = (pu) => {
+    if (Array.isArray(pu?.preferences)) {
+      return pu.preferences.filter(Boolean);
+    }
+    if (typeof pu?.preferences === 'string' && pu.preferences.trim()) {
+      return [pu.preferences.trim()];
+    }
+    return [];
+  };
 
   const handleLogout = () => {
     logout();
@@ -62,6 +100,31 @@ const UserProfile = () => {
       fetchProfile();
     }
   }, [userId, enqueueSnackbar, navigate]);
+
+  // Fetch posts for this user
+  useEffect(() => {
+    const fetchPosts = async () => {
+      if (!userId) return;
+      try {
+        setLoadingPosts(true);
+        const { data } = await postsAPI.getPosts({ userId, limit: 20, page: 1 });
+        setUserPosts(data.posts || []);
+      } catch (err) {
+        console.error('Failed to fetch user posts:', err);
+      } finally {
+        setLoadingPosts(false);
+      }
+    };
+    fetchPosts();
+  }, [userId]);
+
+  const handlePostUpdate = (postId, changes) => {
+    if (changes === null) {
+      setUserPosts(prev => prev.filter(p => p._id !== postId));
+      return;
+    }
+    setUserPosts(prev => prev.map(p => (p._id === postId ? { ...p, ...changes } : p)));
+  };
 
   const getInitials = (name) => {
     return name
@@ -265,12 +328,12 @@ const UserProfile = () => {
 
       {/* 🔹 Main Content */}
       <main className="max-w-4xl mx-auto p-6">
-        {/* Profile Header */}
+        {/* Profile Header (match clean card design) */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="bg-white dark:bg-[#1e293b] rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-8 mb-6"
+          className="bg-white dark:bg-[#1e293b] rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 md:p-8 mb-6"
         >
           <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
             {/* Avatar */}
@@ -284,66 +347,65 @@ const UserProfile = () => {
 
             {/* Profile Info */}
             <div className="flex-1">
-              <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-2">
-                {profileUser.name}
-              </h1>
-              <p className="text-gray-600 dark:text-gray-400 mb-4">
-                @{profileUser.username}
-              </p>
-              
-              {/* Location */}
-              <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 mb-4">
-                <MapPin className="w-4 h-4" />
-                <span>{profileUser.location}</span>
-                {profileUser.distance && (
-                  <span className="text-sm">({profileUser.distance} miles away)</span>
+              <div className="flex items-center gap-3 mb-2">
+                <h1 className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-white">
+                  {profileUser.name}
+                </h1>
+                {/* Inline counts */}
+                <div className="hidden md:flex items-center gap-4 text-sm text-gray-600 dark:text-gray-300">
+                  <span><span className="font-semibold">{profileUser.postsCount || 0}</span> posts</span>
+                  <span><span className="font-semibold">{profileUser.connectionCount || 0}</span> connections</span>
+                </div>
+              </div>
+
+              {/* Info rows */}
+              <div className="space-y-2 mb-3">
+                {Array.isArray(profileUser.goals) && profileUser.goals.length > 0 && (
+                  <div className="flex items-start gap-2 text-gray-700 dark:text-gray-300">
+                    <Target className="w-4 h-4 text-blue-600" />
+                    <span className="text-sm"><span className="font-medium">Goals:</span> {profileUser.goals.join(', ')}</span>
+                  </div>
+                )}
+                {(() => {
+                  const pref = getPreferredActivity(profileUser);
+                  return pref ? (
+                    <div className="flex items-start gap-2 text-gray-700 dark:text-gray-300">
+                      <span className="w-4 h-4 rounded-full border border-purple-400 flex items-center justify-center text-[10px] text-purple-600">❤</span>
+                      <span className="text-sm"><span className="font-medium">Preferred Activity:</span> {pref}</span>
+                    </div>
+                  ) : null;
+                })()}
+                {(() => {
+                  const prefs = getPreferencesList(profileUser);
+                  return prefs.length > 0 ? (
+                  <div className="flex items-start gap-2 text-gray-700 dark:text-gray-300">
+                    <span className="w-4 h-4 rounded-full border border-purple-400 flex items-center justify-center text-[10px] text-purple-600">❤</span>
+                    <span className="text-sm"><span className="font-medium">Preferences:</span> {prefs.join(', ')}</span>
+                  </div>
+                  ) : null;
+                })()}
+                {profileUser.location && (
+                  <div className="flex items-start gap-2 text-gray-700 dark:text-gray-300">
+                    <MapPin className="w-4 h-4 text-green-600" />
+                    <span className="text-sm"><span className="font-medium">Location:</span> {stripPostalCode(profileUser.location)}</span>
+                  </div>
                 )}
               </div>
 
-              {/* Bio */}
-              {profileUser.bio && (
-                <p className="text-gray-700 dark:text-gray-300 mb-4">
-                  {profileUser.bio}
-                </p>
-              )}
-
-              {/* Goals */}
-              {profileUser.goals && profileUser.goals.length > 0 && (
-                <div className="mb-4">
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Goals:
+              {(() => {
+                const pref = getPreferredActivity(profileUser);
+                const bio = (profileUser.bio || '').trim();
+                const isDuplicateOfPref = pref && bio && bio.toLowerCase() === pref.toLowerCase();
+                const content = bio && !isDuplicateOfPref ? bio : null;
+                return (
+                  <p className="text-sm text-gray-700 dark:text-gray-300 mb-1">
+                    {content || 'No bio'}
                   </p>
-                  <div className="flex flex-wrap gap-2">
-                    {profileUser.goals.map((goal, index) => (
-                      <span
-                        key={index}
-                        className={`px-3 py-1 rounded-full text-sm font-medium ${getGoalColor(goal, index)}`}
-                      >
-                        {goal}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Shared Goals */}
-              {profileUser.sharedGoals && profileUser.sharedGoals.length > 0 && (
-                <div className="mb-4">
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Shared Goals:
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {profileUser.sharedGoals.map((goal, index) => (
-                      <span
-                        key={index}
-                        className={`px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200`}
-                      >
-                        {goal}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
+                );
+              })()}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600 dark:text-gray-400">@{profileUser.username}</span>
+              </div>
             </div>
 
             {/* Action Button */}
@@ -353,146 +415,84 @@ const UserProfile = () => {
           </div>
         </motion.div>
 
-        {/* Stats Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="bg-white dark:bg-[#1e293b] rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6 mb-6"
-        >
-          <h2 className="text-xl font-semibold text-gray-800 dark:text-white mb-4">
-            Stats
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div
-              onClick={() => setActiveTab('connections')}
-              className="p-4 rounded-lg bg-gray-50 dark:bg-[#0f172a] cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <Users className="w-8 h-8 text-blue-600" />
-                <div>
-                  <p className="text-2xl font-bold text-gray-800 dark:text-white">
-                    {profileUser.connectionCount}
-                  </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Connected Partners
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div
-              onClick={() => setActiveTab('requests')}
-              className="p-4 rounded-lg bg-gray-50 dark:bg-[#0f172a] cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <UserPlus className="w-8 h-8 text-green-600" />
-                <div>
-                  <p className="text-2xl font-bold text-gray-800 dark:text-white">
-                    {profileUser.sentRequestsCount || 0}
-                  </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Requests Sent
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div
-              onClick={() => setActiveTab('posts')}
-              className="p-4 rounded-lg bg-gray-50 dark:bg-[#0f172a] cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <Image className="w-8 h-8 text-purple-600" />
-                <div>
-                  <p className="text-2xl font-bold text-gray-800 dark:text-white">
-                    {profileUser.postsCount || 0}
-                  </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Posts
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </motion.div>
-
+        {/* Tabs card */}
+        
         {/* Content Tabs */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.4 }}
-          className="bg-white dark:bg-[#1e293b] rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6"
+          className="bg-white dark:bg-[#1e293b] rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-0"
         >
           {/* Tab Navigation */}
-          <div className="flex gap-4 mb-6 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-6 px-6 pt-4">
             <button
               onClick={() => setActiveTab('posts')}
-              className={`pb-2 px-1 font-medium transition-colors ${
+              className={`flex items-center gap-2 pb-3 font-medium transition-colors ${
                 activeTab === 'posts'
                   ? 'text-blue-600 border-b-2 border-blue-600'
                   : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
               }`}
             >
+              <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-blue-100 text-blue-700 text-xs">▣</span>
               Posts
             </button>
             <button
-              onClick={() => setActiveTab('connections')}
-              className={`pb-2 px-1 font-medium transition-colors ${
-                activeTab === 'connections'
+              onClick={() => setActiveTab('mentions')}
+              className={`flex items-center gap-2 pb-3 font-medium transition-colors ${
+                activeTab === 'mentions'
                   ? 'text-blue-600 border-b-2 border-blue-600'
                   : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
               }`}
             >
-              Connections
-            </button>
-            <button
-              onClick={() => setActiveTab('requests')}
-              className={`pb-2 px-1 font-medium transition-colors ${
-                activeTab === 'requests'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-              }`}
-            >
-              Requests
+              <span className="inline-flex items-center justify-center w-5 h-5 rounded border text-xs">💬</span>
+              Mentions
             </button>
           </div>
+          <div className="border-b border-gray-200 dark:border-gray-700" />
 
           {/* Tab Content */}
-          <div className="min-h-[200px]">
+          <div className="min-h-[200px] p-6">
             {activeTab === 'posts' && (
-              <div className="text-center py-12">
-                <Image className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-600 dark:text-gray-400 mb-2">
-                  No posts yet
-                </h3>
-                <p className="text-gray-500 dark:text-gray-500">
-                  {profileUser.name} hasn't shared any posts yet
-                </p>
-              </div>
+              <>
+                {loadingPosts ? (
+                  <div className="text-center py-12">
+                    <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                    <p className="text-gray-600 dark:text-gray-400">Loading posts...</p>
+                  </div>
+                ) : userPosts.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Image className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-600 dark:text-gray-400 mb-2">
+                      No posts yet
+                    </h3>
+                    <p className="text-gray-500 dark:text-gray-500">
+                      {profileUser.name} hasn't shared any posts yet
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {userPosts.map(p => (
+                      <PostCard key={p._id} post={p} onUpdate={handlePostUpdate} socket={socket} />
+                    ))}
+                  </div>
+                )}
+              </>
             )}
 
-            {activeTab === 'connections' && (
+            {activeTab === 'mentions' && (
               <div className="text-center py-12">
                 <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-600 dark:text-gray-400 mb-2">
-                  No connections to show
+                  No mentions yet
                 </h3>
                 <p className="text-gray-500 dark:text-gray-500">
-                  Connection details are private
+                  Posts that mention @{profileUser.username} will show up here
                 </p>
               </div>
             )}
 
-            {activeTab === 'requests' && (
-              <div className="text-center py-12">
-                <UserPlus className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-600 dark:text-gray-400 mb-2">
-                  No requests to show
-                </h3>
-                <p className="text-gray-500 dark:text-gray-500">
-                  Request details are private
-                </p>
-              </div>
-            )}
+            {/* Requests tab removed for public profile */}
           </div>
         </motion.div>
       </main>
