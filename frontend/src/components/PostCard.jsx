@@ -1,4 +1,5 @@
 import { useState, useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
 import { AuthContext } from '../context/AuthContext';
 import { getAvatarSrc } from '../utils/avatarUtils';
@@ -16,6 +17,7 @@ import {
 const PostCard = ({ post, onUpdate, socket }) => {
   const { user } = useContext(AuthContext);
   const { enqueueSnackbar } = useSnackbar();
+  const navigate = useNavigate();
   
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState('');
@@ -255,11 +257,16 @@ const PostCard = ({ post, onUpdate, socket }) => {
             <img
               src={getAvatarSrc(post.user.avatar, post.user.username)}
               alt={post.user.username}
-              className="w-10 h-10 rounded-full object-cover"
+              className="w-10 h-10 rounded-full object-cover cursor-pointer"
+              onClick={() => navigate(`/profile/${post.user._id}`)}
             />
             <div>
-              <h3 className="font-semibold text-gray-900 dark:text-white">
-                {post.user.firstName} {post.user.lastName}
+              <h3
+                className="font-semibold text-gray-900 dark:text-white cursor-pointer hover:underline"
+                onClick={() => navigate(`/profile/${post.user._id}`)}
+                title={`View ${post.user.username}'s profile`}
+              >
+                {post.user.username || `${post.user.firstName || ''} ${post.user.lastName || ''}`.trim()}
               </h3>
               <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-500">{formatTime(post.createdAt)}</span>

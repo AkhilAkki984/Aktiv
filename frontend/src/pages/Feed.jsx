@@ -1,4 +1,5 @@
 import { useState, useEffect, useContext, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
 import { AuthContext } from '../context/AuthContext';
 import { useSocket } from '../hooks/useSocket';
@@ -6,7 +7,7 @@ import PostComposer from '../components/PostComposer';
 import PostCard from '../components/PostCard';
 import { getAvatarSrc } from '../utils/avatarUtils';
 import BackButton from '../components/BackButton';
-import { postsAPI, dashboardAPI } from '../utils/api';
+import { postsAPI, dashboardAPI, goalsAPI } from '../utils/api';
 import { 
   Filter, 
   RefreshCw,
@@ -19,6 +20,7 @@ const Feed = () => {
   const { user } = useContext(AuthContext);
   const { enqueueSnackbar } = useSnackbar();
   const { socket, isConnected } = useSocket();
+  const navigate = useNavigate();
   
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -53,30 +55,43 @@ const Feed = () => {
     'General': { icon: Activity, color: 'text-gray-600', bg: 'bg-gray-100' }
   };
 
-  // Fetch user statistics
+  // Fetch user statistics (ensure current streak is displayed by using best of API or goals data)
   const fetchUserStats = async () => {
     try {
       const response = await dashboardAPI.getStats();
       const data = response.data;
-      
+
+      // In parallel, try to fetch active goals to derive a fallback/augment for current streak
+      let maxGoalStreak = 0;
+      try {
+        const goalsResp = await goalsAPI.getGoals({ status: 'active' });
+        const activeGoals = goalsResp?.data || [];
+        maxGoalStreak = Math.max(0, ...activeGoals.map(g => g?.progress?.currentStreak || 0));
+      } catch (goalsErr) {
+        console.warn('Unable to fetch active goals for streak derivation:', goalsErr);
+      }
+
+      const derivedStreak = Math.max(data.currentStreak || 0, maxGoalStreak);
+
       console.log('Dashboard API response:', data);
-      
+      console.log('Derived current streak (max of API and goals):', derivedStreak);
+
       setUserStats({
         consistency: data.consistencyScore || 0,
         postsCount: data.postsCount || 0,
         connectionsCount: data.connectionsCount || 0,
-        currentStreak: data.currentStreak || 0,
+        currentStreak: derivedStreak,
         goalsAchieved: data.goalsAchieved || 0
       });
-      
+
       console.log('User stats set:', {
         consistency: data.consistencyScore || 0,
         postsCount: data.postsCount || 0,
         connectionsCount: data.connectionsCount || 0,
-        currentStreak: data.currentStreak || 0,
+        currentStreak: derivedStreak,
         goalsAchieved: data.goalsAchieved || 0
       });
-      
+
       console.log('Raw dashboard data:', {
         postsCount: data.postsCount,
         connectionsCount: data.connectionsCount,
@@ -357,9 +372,14 @@ const Feed = () => {
                 <img
                   src={getAvatarSrc(user.avatar, user.username)}
                   alt={user.username}
-                  className="w-20 h-20 rounded-full mx-auto mb-4 object-cover"
+                  className="w-20 h-20 rounded-full mx-auto mb-4 object-cover cursor-pointer"
+                  onClick={() => navigate('/profile')}
                 />
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                <h3
+                  className="text-lg font-semibold text-gray-900 dark:text-white cursor-pointer hover:underline"
+                  onClick={() => navigate('/profile')}
+                  title="View your profile"
+                >
                   {user.username}
                 </h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">

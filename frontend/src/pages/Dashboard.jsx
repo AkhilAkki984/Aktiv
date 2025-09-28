@@ -126,6 +126,27 @@ const Dashboard = () => {
               dashboardData.stats[partnersStatIndex].sub = 'No partners yet';
             }
           }
+
+          // Ensure Current Streak stat is present and accurate
+          const streakStatIndex = dashboardData.stats.findIndex(stat => 
+            stat.label && stat.label.toLowerCase().includes('streak')
+          );
+          const apiStreak = (dashboardData.currentStreak ?? 0);
+          const maxGoalStreak = Math.max(0, ...activeGoals.map(g => g?.progress?.currentStreak || 0));
+          const currentStreakValue = Math.max(apiStreak, maxGoalStreak);
+          const streakSub = currentStreakValue > 0 ? (currentStreakValue >= 7 ? 'Great streak!' : 'Keep it up!') : 'Start your streak!';
+          const streakStat = {
+            label: 'Current Streak',
+            value: `${currentStreakValue} days`,
+            sub: streakSub,
+            color: '#f97316'
+          };
+
+          if (streakStatIndex !== -1) {
+            dashboardData.stats[streakStatIndex] = { ...dashboardData.stats[streakStatIndex], ...streakStat };
+          } else {
+            dashboardData.stats.push(streakStat);
+          }
         }
         
         setDashboardData(dashboardData);
@@ -248,6 +269,27 @@ const Dashboard = () => {
               } else {
                 dashboardData.stats[partnersStatIndex].sub = 'No partners yet';
               }
+            }
+
+            // Ensure Current Streak stat is present and accurate
+            const streakStatIndex = dashboardData.stats.findIndex(stat => 
+              stat.label && stat.label.toLowerCase().includes('streak')
+            );
+            const apiStreak = (dashboardData.currentStreak ?? 0);
+            const maxGoalStreak = Math.max(0, ...activeGoals.map(g => g?.progress?.currentStreak || 0));
+            const currentStreakValue = Math.max(apiStreak, maxGoalStreak);
+            const streakSub = currentStreakValue > 0 ? (currentStreakValue >= 7 ? 'Great streak!' : 'Keep it up!') : 'Start your streak!';
+            const streakStat = {
+              label: 'Current Streak',
+              value: `${currentStreakValue} days`,
+              sub: streakSub,
+              color: '#f97316'
+            };
+
+            if (streakStatIndex !== -1) {
+              dashboardData.stats[streakStatIndex] = { ...dashboardData.stats[streakStatIndex], ...streakStat };
+            } else {
+              dashboardData.stats.push(streakStat);
             }
           }
           
