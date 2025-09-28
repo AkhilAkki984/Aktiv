@@ -1,26 +1,10 @@
 import express from 'express';
 import multer from 'multer';
-import { v2 as cloudinaryV2 } from 'cloudinary';
+import { cloudinary as cloudinaryV2, cloudinaryConfigured } from '../config/cloudinary.js';
 import Post from '../models/Post.js';
 import auth from '../middleware/auth.js';
 
 const router = express.Router();
-
-// Configure Cloudinary (with fallback for missing credentials)
-const cloudinaryConfigured = process.env.CLOUDINARY_CLOUD_NAME && 
-                            process.env.CLOUDINARY_API_KEY && 
-                            process.env.CLOUDINARY_API_SECRET;
-
-if (cloudinaryConfigured) {
-  cloudinaryV2.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET
-  });
-  console.log('✅ Cloudinary configured successfully');
-} else {
-  console.log('⚠️ Cloudinary not configured - media uploads will use local storage fallback');
-}
 
 // Configure multer for memory storage
 const storage = multer.memoryStorage();

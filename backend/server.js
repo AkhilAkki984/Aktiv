@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 import mongoose from "mongoose"; // Ensure mongoose is imported
 import jwt from "jsonwebtoken";
 import connectDB from "./config/db.js";
+import './config/cloudinary.js'; // Import to initialize Cloudinary
 import { initializeChatSocket } from "./socket/chatSocket.js";
 import { initializeFeedSocket } from "./socket/feedSocket.js";
 import passport from "passport";
