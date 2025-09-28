@@ -218,12 +218,14 @@ const PartnerCard = ({ partner, onConnect, onCancelRequest, onProfileClick, inde
       {/* Action Buttons */}
       <div className="flex gap-2">
         {getConnectionButton()}
-        <button
-          onClick={() => onProfileClick(partner._id)}
-          className="py-2 px-4 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-        >
-          <MessageCircle className="w-4 h-4" />
-        </button>
+        {tabType !== 'find' && (
+          <button
+            onClick={() => onProfileClick(partner._id)}
+            className="py-2 px-4 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          >
+            <MessageCircle className="w-4 h-4" />
+          </button>
+        )}
       </div>
     </motion.div>
   );
