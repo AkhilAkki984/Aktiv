@@ -289,47 +289,47 @@ const Profile = () => {
       </div>
 
         {/* Header Section - Instagram Style */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
-          <div className="flex items-start gap-6">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 md:p-6 mb-6">
+          <div className="flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-6">
             {/* Left Side - Avatar */}
             <div className="flex-shrink-0">
               <img
           src={getAvatarSrc(user?.avatar, user?.username)}
                 alt={user?.username}
-                className="w-24 h-24 rounded-full object-cover"
+                className="w-20 h-20 md:w-24 md:h-24 rounded-full object-cover"
               />
             </div>
 
             {/* Right Side - Profile Info */}
             <div className="flex-1">
               {/* Username and Edit Button */}
-              <div className="flex items-center gap-4 mb-4">
+              <div className="flex flex-wrap items-center gap-3 md:gap-4 mb-4">
                 <h1 className="text-xl font-normal text-gray-900 dark:text-white">
           {user?.username}
                 </h1>
                 <button
           onClick={() => navigate('/onboarding')}
-                  className="px-4 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium cursor-pointer"
+                  className="px-3 md:px-4 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium cursor-pointer"
                 >
                   Edit profile
                 </button>
                 <button
                   onClick={() => navigate('/feed')}
-                  className="px-4 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium cursor-pointer"
+                  className="px-3 md:px-4 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium cursor-pointer"
                 >
                   Create Post
                 </button>
               </div>
 
               {/* Stats Row */}
-              <div className="flex gap-8 mb-4">
-                <div className="text-center">
+              <div className="flex flex-wrap gap-6 md:gap-8 mb-4">
+                <div className="text-left md:text-center">
                   <div className="text-lg font-semibold text-gray-900 dark:text-white">
                     {userStats.postsCount}
                   </div>
                   <div className="text-sm text-gray-600 dark:text-gray-400">posts</div>
                 </div>
-                <div className="text-center">
+                <div className="text-left md:text-center">
                   <div className="text-lg font-semibold text-gray-900 dark:text-white">
                     {userStats.connectionsCount}
                   </div>
@@ -420,7 +420,7 @@ const Profile = () => {
                     {/* Preview mode: two-card carousel with arrows */}
                     {!showAllPosts && (
                       <div className="relative">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                           {[0, 1].map((offset) => {
                             const idx = (previewIndex + offset) % combinedPosts.length;
                             const post = combinedPosts[idx];
@@ -441,16 +441,19 @@ const Profile = () => {
                                   </div>
                                 </div>
 
-                                {/* Content clickable */}
-                                <div onClick={() => handlePostClick(post)} className="cursor-pointer select-none">
+                                {/* Content clickable (desktop only) */}
+                                <div
+                                  onClick={() => { if (window.innerWidth >= 768) handlePostClick(post); }}
+                                  className="cursor-pointer select-none"
+                                >
                                   {post.text && (
                                     <div className="p-3">
                                       <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap line-clamp-4">{post.text}</p>
                                     </div>
                                   )}
                                   {post.mediaUrl && (
-                                    <div className="border-t border-gray-100 dark:border-gray-700">
-                                      <img src={post.mediaUrl} alt="Post media" className="w-full max-h-56 object-cover" />
+                                    <div className="border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+                                      <img src={post.mediaUrl} alt="Post media" className="w-auto max-w-full max-h-56 sm:max-h-72 object-contain" />
                                     </div>
                                   )}
                                 </div>
@@ -458,7 +461,13 @@ const Profile = () => {
                                 {/* Footer */}
                                 <div className="px-3 py-2 flex items-center gap-6 text-gray-600 dark:text-gray-400 text-xs">
                                   <div className="flex items-center gap-1"><Heart size={14} />{post.likeCount || 0}</div>
-                                  <div className="flex items-center gap-1"><MessageSquare size={14} />{post.commentCount || 0}</div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handlePostClick(post)}
+                                    className="flex items-center gap-1 hover:text-gray-800 dark:hover:text-gray-200"
+                                  >
+                                    <MessageSquare size={14} />{post.commentCount || 0}
+                                  </button>
                                 </div>
                               </div>
                             );
@@ -514,21 +523,24 @@ const Profile = () => {
                                   </div>
                                 </div>
                               </div>
-                              <div className="relative group">
+                              <div className="relative delete-menu-container">
                                 <button
                                   className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400"
                                   aria-label="More options"
+                                  onClick={() => setShowDeleteMenu(prev => prev === post._id ? null : post._id)}
                                 >
                                   <MoreVertical size={18} />
                                 </button>
-                                <div className="absolute right-0 mt-2 w-28 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg hidden group-hover:block z-10">
-                                  <button
-                                    onClick={() => handleDeletePost(post._id)}
-                                    className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md"
-                                  >
-                                    Delete
-                                  </button>
-                                </div>
+                                {showDeleteMenu === post._id && (
+                                  <div className="absolute right-0 mt-2 w-28 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-10">
+                                    <button
+                                      onClick={() => { setShowDeleteMenu(null); handleDeletePost(post._id); }}
+                                      className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md"
+                                    >
+                                      Delete
+                                    </button>
+                                  </div>
+                                )}
                               </div>
                             </div>
 
@@ -539,9 +551,9 @@ const Profile = () => {
                               </div>
                             )}
 
-                            {/* Image container (object-contain to avoid cropping) */}
+                            {/* Image container (object-contain to avoid cropping). Click opens only on md+ */}
                             {post.mediaUrl && (
-                              <div onClick={() => handlePostClick(post)} className="w-full bg-gray-50 dark:bg-gray-900 flex items-center justify-center cursor-pointer">
+                              <div onClick={() => { if (window.innerWidth >= 768) handlePostClick(post); }} className="w-full bg-gray-50 dark:bg-gray-900 flex items-center justify-center cursor-pointer">
                                 <img src={post.mediaUrl} alt="Post media" className="max-h-80 md:max-h-96 w-auto object-contain" />
                               </div>
                             )}
@@ -549,7 +561,13 @@ const Profile = () => {
                             {/* Footer */}
                             <div className="px-4 py-3 flex items-center gap-6 text-gray-600 dark:text-gray-400 text-sm">
                               <div className="flex items-center gap-1"><Heart size={16} />{post.likeCount || 0}</div>
-                              <div className="flex items-center gap-1"><MessageSquare size={16} />{post.commentCount || 0}</div>
+                              <button
+                                type="button"
+                                onClick={() => handlePostClick(post)}
+                                className="flex items-center gap-1 hover:text-gray-800 dark:hover:text-gray-200"
+                              >
+                                <MessageSquare size={16} />{post.commentCount || 0}
+                              </button>
                             </div>
                           </div>
                         ))}

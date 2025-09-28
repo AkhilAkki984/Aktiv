@@ -482,7 +482,8 @@ const Chat = () => {
     <ErrorBoundary>
       <div className="flex h-screen bg-white dark:bg-gray-900">
       {/* Chat Sidebar */}
-      <div className="w-1/3 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex flex-col">
+      <div className={`${selectedChat ? 'hidden md:flex' : 'flex'} w-full md:w-1/3 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex-col`}
+      >
         {/* Header */}
         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between mb-4">
@@ -589,12 +590,20 @@ const Chat = () => {
       </div>
 
       {/* Chat Window */}
-      <div className="flex-1 flex flex-col bg-white dark:bg-gray-900">
+      <div className={`${selectedChat ? 'flex' : 'hidden md:flex'} flex-1 flex-col bg-white dark:bg-gray-900`}>
         {selectedChat ? (
           <>
             {/* Chat Header */}
             <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex items-center justify-between">
               <div className="flex items-center gap-3">
+                {/* Mobile back to list */}
+                <button
+                  className="md:hidden p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600"
+                  onClick={() => setSelectedChat(null)}
+                  aria-label="Back to conversations"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path d="M15 18l-6-6 6-6"/></svg>
+                </button>
                 <img
                   src={getAvatarSrc(selectedChat.avatar, selectedChat.name)}
                   alt={selectedChat.name}
