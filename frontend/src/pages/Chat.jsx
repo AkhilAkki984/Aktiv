@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useContext } from "react";
+import React, { useEffect, useState, useRef, useContext, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSnackbar } from "notistack";
 import { chatAPI, groupAPI, uploadAPI } from "../utils/api";
@@ -8,6 +8,8 @@ import ErrorBoundary from "../components/ErrorBoundary";
 import { getAvatarSrc } from "../utils/avatarUtils";
 import BackButton from "../components/BackButton";
 import EmojiPicker from 'emoji-picker-react';
+import { format, isSameDay, parseISO } from 'date-fns';
+import DateSeparator from '../components/chat/DateSeparator';
 import { 
   Search, 
   MoreVertical, 
@@ -743,21 +745,32 @@ const Chat = () => {
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-3 sm:p-4 bg-gray-50 dark:bg-gray-900" style={{ WebkitOverflowScrolling: 'touch' }}>
               {messages.map((message, index) => {
-                // Properly compare user ID with sender ID
+                // Message metadata
                 const isOwnMessage = message.sender._id === user._id || message.sender._id === user.id;
                 const prevMessage = index > 0 ? messages[index - 1] : null;
                 const nextMessage = index < messages.length - 1 ? messages[index + 1] : null;
                 const showAvatar = !isOwnMessage && (!prevMessage || prevMessage.sender._id !== message.sender._id);
                 const isLastInGroup = !nextMessage || nextMessage.sender._id !== message.sender._id;
+
+                // Check if we need to show a date separator
+                const showDateSeparator = index === 0 || 
+                  !isSameDay(parseISO(messages[index - 1].createdAt), parseISO(message.createdAt));
                 
                 return (
-                  <div
-                    key={message._id}
-                    className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} mb-1 sm:mb-2 px-1 sm:px-2`}
-                  >
-                    <div className={`flex items-end gap-2 max-w-xs lg:max-w-md ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`}>
-                      {/* Avatar for received messages */}
-                      {!isOwnMessage && showAvatar && (
+                  <React.Fragment key={message._id}>
+                    {showDateSeparator && (
+                      <div className="w-full flex justify-center my-3">
+                        <div className="bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-full">
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            {format(new Date(message.createdAt), 'MMMM d, yyyy')}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    <div className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} mb-1 sm:mb-2 px-1 sm:px-2`}>
+                      <div className={`flex items-end gap-2 max-w-xs lg:max-w-md ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`}>
+                        {/* Avatar for received messages */}
+                        {!isOwnMessage && showAvatar && (
                           <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
                             <img
                               src={getAvatarSrc(message.sender.avatar, message.sender.username)}
@@ -765,77 +778,78 @@ const Chat = () => {
                               className="w-full h-full object-cover"
                             />
                           </div>
-                      )}
+                        )}
                       
-                      {/* Spacer for alignment when no avatar */}
-                      {!isOwnMessage && !showAvatar && <div className="w-8"></div>}
-                      
-                      {/* Message bubble */}
-                      <div
-                        className={`relative px-4 py-2 ${
-                          isOwnMessage
-                            ? 'bg-blue-200 text-gray-900 rounded-2xl rounded-br-sm'
-                            : 'bg-gray-200 text-gray-900 rounded-2xl rounded-bl-sm'
-                        } ${isLastInGroup ? '' : 'mb-0.5'}`}
-                        style={{
-                          maxWidth: '280px',
-                          wordWrap: 'break-word'
-                        }}
-                      >
-                        {/* Media Content */}
-                        {message.media && (
-                          <div className="mb-2 -mx-1 -mt-1">
-                            {message.media.type === 'image' && (
-                              <img
-                                src={message.media.url}
-                                alt="Shared image"
-                                className="rounded-lg max-h-64 object-cover w-full cursor-pointer"
-                                onClick={() => window.open(message.media.url, '_blank')}
-                              />
-                            )}
-                            {message.media.type === 'video' && (
-                              <video
-                                src={message.media.url}
-                                controls
-                                className="rounded-lg max-h-64 w-full"
-                                preload="metadata"
-                              >
-                                Your browser does not support the video tag.
-                              </video>
-                            )}
-                            {message.media.type === 'audio' && (
-                              <audio src={message.media.url} controls className="w-full" />
-                            )}
-                            {message.media.type === 'document' && (
-                              <div className={`flex items-center gap-2 p-2 ${isOwnMessage ? 'bg-blue-300' : 'bg-gray-300'} rounded`}>
-                                <FileText size={20} />
-                                <span className="text-sm">{message.media.filename}</span>
+                        {/* Spacer for alignment when no avatar */}
+                        {!isOwnMessage && !showAvatar && <div className="w-8"></div>}
+                        
+                        {/* Message bubble */}
+                        <div
+                          className={`relative px-4 py-2 ${
+                            isOwnMessage
+                              ? 'bg-blue-200 text-gray-900 rounded-2xl rounded-br-sm'
+                              : 'bg-gray-200 text-gray-900 rounded-2xl rounded-bl-sm'
+                          } ${isLastInGroup ? '' : 'mb-0.5'}`}
+                          style={{
+                            maxWidth: '280px',
+                            wordWrap: 'break-word'
+                          }}
+                        >
+                          {/* Media Content */}
+                          {message.media && (
+                            <div className="mb-2 -mx-1 -mt-1">
+                              {message.media.type === 'image' && (
+                                <img
+                                  src={message.media.url}
+                                  alt="Shared image"
+                                  className="rounded-lg max-h-64 object-cover w-full cursor-pointer"
+                                  onClick={() => window.open(message.media.url, '_blank')}
+                                />
+                              )}
+                              {message.media.type === 'video' && (
+                                <video
+                                  src={message.media.url}
+                                  controls
+                                  className="rounded-lg max-h-64 w-full"
+                                  preload="metadata"
+                                >
+                                  Your browser does not support the video tag.
+                                </video>
+                              )}
+                              {message.media.type === 'audio' && (
+                                <audio src={message.media.url} controls className="w-full" />
+                              )}
+                              {message.media.type === 'document' && (
+                                <div className={`flex items-center gap-2 p-2 ${isOwnMessage ? 'bg-blue-300' : 'bg-gray-300'} rounded`}>
+                                  <FileText size={20} />
+                                  <span className="text-sm">{message.media.filename}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          
+                          {/* Text Content */}
+                          {message.content && (
+                            <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                              {message.content}
+                            </p>
+                          )}
+                          
+                          {/* Message Footer */}
+                          <div className={`flex items-center gap-1 mt-1 ${isOwnMessage ? 'justify-end' : 'justify-start'}`}>
+                            <span className={`text-[11px] sm:text-xs ${isOwnMessage ? 'text-gray-600' : 'text-gray-500'}`}>
+                              {format(new Date(message.createdAt), 'h:mm a')}
+                            </span>
+                            {isOwnMessage && (
+                              <div className="ml-1">
+                                {getMessageStatusIcon(message)}
                               </div>
                             )}
                           </div>
-                        )}
-                        
-                        {/* Text Content */}
-                        {message.content && (
-                          <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                            {message.content}
-                          </p>
-                        )}
-                        
-                        {/* Message Footer */}
-                        <div className={`flex items-center gap-1 mt-1 ${isOwnMessage ? 'justify-end' : 'justify-start'}`}>
-                          <span className={`text-[11px] sm:text-xs ${isOwnMessage ? 'text-gray-600' : 'text-gray-500'}`}>
-                            {formatTime(message.createdAt)}
-                          </span>
-                          {isOwnMessage && (
-                            <div className="ml-1">
-                              {getMessageStatusIcon(message)}
-                            </div>
-                          )}
                         </div>
                       </div>
                     </div>
-                  </div>
+                  </React.Fragment>
                 );
               })}
               
