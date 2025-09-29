@@ -31,16 +31,33 @@ const app = express();
 const server = http.createServer(app);
 
 // Initialize app middleware
+app.use((req, res, next) => {
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'self';" +
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://aktiv-frontend.onrender.com;" +
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;" +
+    "font-src 'self' https://fonts.gstatic.com data:;" +
+    "img-src 'self' data: https:;" +
+    "connect-src 'self' https://aktiv-backend.onrender.com wss://aktiv-backend.onrender.com;"
+  );
+  next();
+});
+
 app.use(cors({ 
   origin: [ "http://localhost:5173", // Development
     "https://aktiv-frontend.onrender.com", // Your production frontend
     "https://*.onrender.com" // All Render subdomains
-
   ], 
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
+
+// Root route
+app.get('/', (req, res) => {
+  res.json({ message: 'Aktiv API is running' });
+});
 app.use(express.json());
 app.use(passport.initialize());
 
