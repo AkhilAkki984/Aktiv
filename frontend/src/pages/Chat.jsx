@@ -480,10 +480,20 @@ const Chat = () => {
 
   return (
     <ErrorBoundary>
-      <div className="flex h-screen bg-white dark:bg-gray-900">
-      {/* Chat Sidebar */}
-      <div className={`${selectedChat ? 'hidden md:flex' : 'flex'} w-full md:w-1/3 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex-col`}
-      >
+      <div className="flex h-screen bg-white dark:bg-gray-900 relative overflow-hidden">
+        {/* Chat Sidebar */}
+        <div 
+          className={`${selectedChat ? 'hidden md:flex' : 'flex'} w-full md:w-1/3 lg:w-1/4 xl:w-1/5 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex-col transform transition-transform duration-300 ease-in-out`}
+          style={{
+            position: 'absolute',
+            height: '100%',
+            zIndex: 10,
+            transform: selectedChat ? 'translateX(-100%)' : 'translateX(0)',
+            width: '100%',
+            maxWidth: '400px',
+            ...(selectedChat ? { boxShadow: 'none' } : { boxShadow: '2px 0 10px rgba(0,0,0,0.1)' })
+          }}
+        >
         {/* Header */}
         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between mb-4">
@@ -548,7 +558,7 @@ const Chat = () => {
                   <img
                     src={getAvatarSrc(conversation.avatar, conversation.name)}
                     alt={conversation.name}
-                    className="w-12 h-12 rounded-full object-cover"
+                    className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover flex-shrink-0"
                   />
                   {conversation.type === 'group' && (
                     <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-blue-600 rounded-full flex items-center justify-center">
@@ -560,7 +570,7 @@ const Chat = () => {
                 {/* Conversation Info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-gray-900 dark:text-white truncate">
+                    <h3 className="font-semibold text-gray-900 dark:text-white truncate text-sm sm:text-base">
                       {conversation.name}
                     </h3>
                     <div className="flex items-center gap-1">
@@ -575,7 +585,7 @@ const Chat = () => {
                   </div>
                   
                   <div className="flex items-center justify-between mt-1">
-                    <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">
                       {conversation.lastMessage?.content || (conversation.hasMessages ? 'No messages yet' : 'Start a conversation')}
                     </p>
                     <span className="text-xs text-gray-500">
@@ -590,7 +600,18 @@ const Chat = () => {
       </div>
 
       {/* Chat Window */}
-      <div className={`${selectedChat ? 'flex' : 'hidden md:flex'} flex-1 flex-col bg-white dark:bg-gray-900`}>
+      <div 
+        className={`${selectedChat ? 'flex' : 'hidden md:flex'} flex-1 flex-col bg-white dark:bg-gray-900 relative`}
+        style={{
+          width: '100%',
+          height: '100%',
+          transform: selectedChat ? 'translateX(0)' : 'translateX(100%)',
+          transition: 'transform 0.3s ease-in-out',
+          position: 'absolute',
+          right: 0,
+          ...(selectedChat ? { zIndex: 20 } : { zIndex: 5 })
+        }}
+      >
         {selectedChat ? (
           <>
             {/* Chat Header */}
@@ -669,7 +690,7 @@ const Chat = () => {
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900">
+            <div className="flex-1 overflow-y-auto p-3 sm:p-4 bg-gray-50 dark:bg-gray-900" style={{ WebkitOverflowScrolling: 'touch' }}>
               {messages.map((message, index) => {
                 // Properly compare user ID with sender ID
                 const isOwnMessage = message.sender._id === user._id || message.sender._id === user.id;
@@ -681,7 +702,7 @@ const Chat = () => {
                 return (
                   <div
                     key={message._id}
-                    className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} mb-2`}
+                    className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} mb-1 sm:mb-2 px-1 sm:px-2`}
                   >
                     <div className={`flex items-end gap-2 max-w-xs lg:max-w-md ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`}>
                       {/* Avatar for received messages */}
@@ -752,7 +773,7 @@ const Chat = () => {
                         
                         {/* Message Footer */}
                         <div className={`flex items-center gap-1 mt-1 ${isOwnMessage ? 'justify-end' : 'justify-start'}`}>
-                          <span className={`text-xs ${isOwnMessage ? 'text-gray-600' : 'text-gray-500'}`}>
+                          <span className={`text-[11px] sm:text-xs ${isOwnMessage ? 'text-gray-600' : 'text-gray-500'}`}>
                             {formatTime(message.createdAt)}
                           </span>
                           {isOwnMessage && (
@@ -792,7 +813,7 @@ const Chat = () => {
             </div>
 
             {/* Message Input */}
-            <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 relative">
+            <div className="p-3 md:p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 relative">
               {/* Media Preview */}
               {previewMedia && (
                 <div className="mb-3 p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
@@ -826,7 +847,7 @@ const Chat = () => {
                 </div>
               )}
 
-               <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800 rounded-full px-4 py-2">
+               <div className="flex items-center gap-1 sm:gap-2 bg-gray-50 dark:bg-gray-800 rounded-full px-3 py-2">
                  {/* Media Upload Button */}
                  <button
                    onClick={() => fileInputRef.current?.click()}
@@ -865,7 +886,7 @@ const Chat = () => {
                   value={messageText}
                   onChange={handleTyping}
                   onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                  className="flex-1 px-3 py-2 bg-transparent text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none"
+                  className="flex-1 px-2 sm:px-3 py-2 bg-transparent text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none text-sm sm:text-base"
                 />
                 
                 {/* Send Button */}
@@ -877,7 +898,7 @@ const Chat = () => {
                     handleSendMessage();
                   }}
                   disabled={(!messageText.trim() && !previewMedia) || sendingMessage || uploadingMedia}
-                  className="p-2 rounded-full bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="p-2 rounded-full bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
                 >
                   <Send size={20} />
                 </button>
@@ -911,20 +932,21 @@ const Chat = () => {
         )}
       </div>
 
-      {/* Create Group Modal */}
+      {/* Create Group Modal - Enhanced for mobile */}
       {showCreateGroup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Create Group</h2>
-              <button
-                onClick={() => setShowCreateGroup(false)}
-                className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
-              >
-                <X size={20} className="text-gray-400" />
-              </button>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-md max-h-[90vh] flex flex-col" style={{ boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)' }}>
+            <div className="p-5 overflow-y-auto flex-1">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Create Group</h2>
+                <button
+                  onClick={() => setShowCreateGroup(false)}
+                  className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  <X size={20} className="text-gray-400" />
+                </button>
+              </div>
             </div>
-            
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -938,7 +960,6 @@ const Chat = () => {
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
-              
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Add Members
@@ -958,11 +979,11 @@ const Chat = () => {
                         selectedUsers.find(u => u._id === user._id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''
                       }`}
                     >
-                        <img
-                          src={getAvatarSrc(user.avatar, user.username)}
-                          alt={user.username}
-                          className="w-8 h-8 rounded-full object-cover"
-                        />
+                      <img
+                        src={getAvatarSrc(user.avatar, user.username)}
+                        alt={user.username}
+                        className="w-8 h-8 rounded-full object-cover"
+                      />
                       <span className="text-sm text-gray-900 dark:text-white">
                         {user.getFullName?.() || user.username}
                       </span>
@@ -973,17 +994,33 @@ const Chat = () => {
                   ))}
                 </div>
               </div>
-              
-              <div className="flex gap-3 pt-4">
+            </div>
+            <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 rounded-b-xl">
+              <div className="flex gap-3">
                 <button
-                  onClick={() => setShowCreateGroup(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={createGroup}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                >
+                  Create Group
+                </button>
+              </div>
+            </div>
+            <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 rounded-b-xl">
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowCreateGroup(false)}
+                  className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={createGroup}
+                  className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
                 >
                   Create Group
                 </button>

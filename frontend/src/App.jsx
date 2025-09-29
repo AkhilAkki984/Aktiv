@@ -46,6 +46,14 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/chat"
+        element={
+          <PrivateRoute>
+            <Chat />
+          </PrivateRoute>
+        }
+      />
+      <Route
         path="/onboarding"
         element={
           <PrivateRoute>

@@ -165,23 +165,32 @@ const Leaderboard = () => {
 
   return (
     <div className="min-h-screen bg-white">
-      <div className="container mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
         {/* Header */}
         <motion.div
-          initial={{ opacity: 0, y: -20 }}
+          initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="mb-8"
+          transition={{ duration: 0.4 }}
+          className="mb-6 sm:mb-8"
         >
-          <div className="flex items-center gap-4 mb-4">
-            <BackButton />
-            <div>
-              <h1 className="text-3xl font-bold text-black mb-2">
-                Leaderboard
-              </h1>
-              <p className="text-gray-600">
-                See how you rank among the fitness community
-              </p>
+          <div className="flex items-start sm:items-center gap-3 sm:gap-4">
+            <div className="sm:hidden mt-1">
+              <BackButton />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-3">
+                <div className="hidden sm:block">
+                  <BackButton />
+                </div>
+                <div>
+                  <h1 className="text-2xl sm:text-3xl font-bold text-black mb-1 sm:mb-2">
+                    Leaderboard
+                  </h1>
+                  <p className="text-sm sm:text-base text-gray-600">
+                    See how you rank among the fitness community
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </motion.div>
@@ -189,79 +198,96 @@ const Leaderboard = () => {
         {/* Current User Banner */}
         {currentUser && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
+            initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="text-white rounded-2xl shadow-xl p-6 mb-8 relative overflow-hidden"
+            transition={{ duration: 0.4, delay: 0.1 }}
+            className="text-white rounded-xl sm:rounded-2xl shadow-lg sm:shadow-xl p-4 sm:p-6 mb-6 sm:mb-8 relative overflow-hidden"
             style={{background: 'linear-gradient(135deg, #0046ff 0%, #0038cc 100%)'}}
           >
-            <div className="flex items-center gap-6">
-              <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center text-2xl font-bold">
+            <div className="flex items-center gap-3 sm:gap-4 md:gap-6">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 bg-white/20 rounded-full flex-shrink-0 flex items-center justify-center text-lg sm:text-xl md:text-2xl font-bold">
                 #{currentUser.rank}
               </div>
-              <div className="flex-1">
-                <h2 className="text-xl font-bold mb-1">Your Current Rank</h2>
-                <p className="text-sm opacity-90 capitalize">
-                  {selectedMetric === 'streak' ? 'Streak' : selectedMetric === 'goals' ? 'Goals Achieved' : 'Check-ins'} • This week
+              <div className="flex-1 min-w-0">
+                <h2 className="text-base sm:text-lg md:text-xl font-bold mb-0.5 sm:mb-1 truncate">Your Current Rank</h2>
+                <p className="text-xs sm:text-sm opacity-90 capitalize truncate">
+                  {selectedMetric === 'streak' ? 'Streak' : selectedMetric === 'goals' ? 'Goals Achieved' : 'Check-ins'} • 
+                  {selectedFilter === 'thisWeek' ? 'This week' : 
+                   selectedFilter === 'lastWeek' ? 'Last week' : 
+                   selectedFilter === 'lastMonth' ? 'Last month' : 'Custom range'}
                 </p>
               </div>
-              <div className="text-right">
-                <div className="text-2xl font-bold">
-                  {currentUser.metricValue} {selectedMetric === 'streak' ? 'days' : selectedMetric === 'goals' ? 'goals' : selectedMetric === 'checkins' ? 'check-ins' : ''}
+              <div className="text-right flex-shrink-0">
+                <div className="text-lg sm:text-xl md:text-2xl font-bold whitespace-nowrap">
+                  {currentUser.metricValue} 
+                  <span className="text-sm sm:text-base opacity-90">
+                    {selectedMetric === 'streak' ? ' days' : 
+                     selectedMetric === 'goals' ? ' goals' : 
+                     selectedMetric === 'checkins' ? ' check-ins' : ''}
+                  </span>
                 </div>
               </div>
             </div>
           </motion.div>
         )}
 
-        {/* Metric Tabs */}
+        {/* Metric Tabs and Filters */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.3 }}
-          className="flex gap-2 mb-6"
+          transition={{ duration: 0.4, delay: 0.2 }}
+          className="mb-6"
         >
-          {metrics.map((metric) => {
-            const Icon = metric.icon;
-            return (
+          <div className="flex flex-col sm:flex-row gap-3 mb-3">
+            {/* Metric Tabs */}
+            <div className="flex flex-wrap gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+              {metrics.map((metric) => {
+                const Icon = metric.icon;
+                const isActive = selectedMetric === metric.id;
+                return (
+                  <button
+                    key={metric.id}
+                    onClick={() => setSelectedMetric(metric.id)}
+                    className={`px-3 py-1.5 sm:py-2 rounded-lg transition-all duration-200 flex items-center gap-1.5 text-sm font-medium whitespace-nowrap ${
+                      isActive
+                        ? 'text-white shadow-sm'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+                    }`}
+                    style={isActive ? {backgroundColor: '#0046ff'} : {}}
+                    aria-pressed={isActive}
+                  >
+                    <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                    <span>{metric.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+            
+            {/* Time Period Dropdown */}
+            <div className="flex items-center gap-2 mt-1 sm:mt-0 sm:ml-auto">
               <button
-                key={metric.id}
-                onClick={() => setSelectedMetric(metric.id)}
-                className={`px-4 py-2 rounded-lg transition-all duration-200 flex items-center gap-2 ${
-                  selectedMetric === metric.id
-                    ? 'text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-                style={selectedMetric === metric.id ? {backgroundColor: '#0046ff'} : {}}
+                onClick={debugUserData}
+                className="hidden sm:inline-flex items-center px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                title="Debug data"
               >
-                <Icon className="w-4 h-4" />
-                <span className="text-sm font-medium">{metric.name}</span>
+                <span className="hidden sm:inline">Debug</span>
               </button>
-            );
-          })}
-          
-          {/* Time Period Dropdown */}
-          <div className="ml-auto flex items-center gap-2">
-            <button
-              onClick={debugUserData}
-              className="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm hover:bg-gray-200"
-            >
-              Debug Data
-            </button>
-            <select
-              value={selectedFilter}
-              onChange={(e) => {
-                setSelectedFilter(e.target.value);
-                setShowCustomDate(e.target.value === 'custom');
-              }}
-              className="bg-white text-black border border-gray-200 rounded-lg px-3 py-2 text-sm"
-            >
-              {dateFilters.map((filter) => (
-                <option key={filter.id} value={filter.id}>
-                  {filter.name}
-                </option>
-              ))}
-            </select>
+              <select
+                value={selectedFilter}
+                onChange={(e) => {
+                  setSelectedFilter(e.target.value);
+                  setShowCustomDate(e.target.value === 'custom');
+                }}
+                className="flex-1 sm:flex-none bg-white text-black border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+                aria-label="Select time period"
+              >
+                {dateFilters.map((filter) => (
+                  <option key={filter.id} value={filter.id}>
+                    {filter.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </motion.div>
 
@@ -269,33 +295,36 @@ const Leaderboard = () => {
         <AnimatePresence>
           {showCustomDate && (
             <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="mb-6 bg-gray-50 rounded-lg p-4 border border-gray-200"
+              initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+              animate={{ opacity: 1, height: 'auto', marginBottom: '1.5rem' }}
+              exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+              transition={{ duration: 0.3, ease: 'easeInOut' }}
+              className="bg-gray-50 dark:bg-gray-800 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700"
             >
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-2">
-                    Start Date
-                  </label>
-                  <input
-                    type="date"
-                    value={customDateRange.start}
-                    onChange={(e) => setCustomDateRange(prev => ({ ...prev, start: e.target.value }))}
-                    className="w-full p-3 border border-gray-200 rounded-lg bg-white text-black"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-2">
-                    End Date
-                  </label>
-                  <input
-                    type="date"
-                    value={customDateRange.end}
-                    onChange={(e) => setCustomDateRange(prev => ({ ...prev, end: e.target.value }))}
-                    className="w-full p-3 border border-gray-200 rounded-lg bg-white text-black"
-                  />
+              <div className="p-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-300 mb-1.5">
+                      Start Date
+                    </label>
+                    <input
+                      type="date"
+                      value={customDateRange.start}
+                      onChange={(e) => setCustomDateRange(prev => ({ ...prev, start: e.target.value }))}
+                      className="w-full p-2 sm:p-2.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-black dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-300 mb-1.5">
+                      End Date
+                    </label>
+                    <input
+                      type="date"
+                      value={customDateRange.end}
+                      onChange={(e) => setCustomDateRange(prev => ({ ...prev, end: e.target.value }))}
+                      className="w-full p-2 sm:p-2.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-black dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
                 </div>
               </div>
             </motion.div>
@@ -304,33 +333,36 @@ const Leaderboard = () => {
 
         {/* Leaderboard Section */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.4 }}
-          className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200"
+          transition={{ duration: 0.4, delay: 0.3 }}
+          className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden border border-gray-200 dark:border-gray-700"
         >
-          <div className="p-6 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-black">
+          <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
+            <h3 className="text-base sm:text-lg font-semibold text-black dark:text-white">
               Top Performers - {selectedMetric === 'streak' ? 'Streak' : selectedMetric === 'goals' ? 'Goals Achieved' : 'Check-ins'}
             </h3>
           </div>
 
           {loading ? (
-            <div className="p-8 text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto" style={{borderColor: '#0046ff'}}></div>
-              <p className="text-gray-600 mt-2">Loading leaderboard...</p>
+            <div className="p-6 sm:p-8 text-center">
+              <div className="animate-spin rounded-full h-7 w-7 border-b-2 mx-auto" style={{borderColor: '#0046ff'}}></div>
+              <p className="text-gray-600 dark:text-gray-400 mt-2 text-sm sm:text-base">Loading leaderboard...</p>
             </div>
           ) : !leaders || leaders.length === 0 ? (
-            <div className="p-8 text-center text-gray-600">
-              <Trophy className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>No leaderboard data available</p>
-              <p className="text-sm mt-2">Start completing goals and check-ins to appear on the leaderboard!</p>
+            <div className="p-6 sm:p-8 text-center text-gray-600 dark:text-gray-400">
+              <Trophy className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 sm:mb-4 opacity-50" />
+              <p className="text-sm sm:text-base">No leaderboard data available</p>
+              <p className="text-xs sm:text-sm mt-1.5 text-gray-500 dark:text-gray-500">
+                Start completing goals and check-ins to appear on the leaderboard!
+              </p>
             </div>
           ) : (
-            <div className="divide-y divide-gray-200">
+            <div className="divide-y divide-gray-200 dark:divide-gray-700">
               {leaders.map((leader, idx) => {
                 const isCurrentUser = currentUser && leader._id === currentUser._id;
                 const rank = idx + 1;
+                const isTop3 = rank <= 3;
                 
                 // Mock titles for demonstration
                 const titles = ['Yoga Master', 'Cycling PRO', 'Running Expert', 'Strength Coach', 'Fitness Newbie', 'Rising Star'];
@@ -339,74 +371,135 @@ const Leaderboard = () => {
                 return (
                   <motion.div
                     key={leader._id}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: idx * 0.05 }}
-                    className={`p-6 flex items-center justify-between hover:bg-gray-50 transition-colors ${
-                      isCurrentUser ? 'bg-blue-50' : ''
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: idx * 0.03 }}
+                    className={`p-3 sm:p-4 md:p-5 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${
+                      isCurrentUser ? 'bg-blue-50 dark:bg-blue-900/20' : ''
                     }`}
                   >
-                    <div className="flex items-center gap-4 flex-1">
-                      {/* Rank Circle */}
-                      <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-sm font-bold text-black">
-                        {rank}
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      {/* Rank Badge */}
+                      <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs sm:text-sm font-bold ${
+                        isTop3 
+                          ? rank === 1 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' 
+                            : rank === 2 ? 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300' 
+                            : 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400'
+                          : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                      }`}>
+                        {isTop3 ? (
+                          <span className="text-base sm:text-lg">
+                            {rank === 1 ? '🥇' : rank === 2 ? '🥈' : '🥉'}
+                          </span>
+                        ) : (
+                          `#${rank}`
+                        )}
                       </div>
                       
                       {/* Profile Picture */}
-                      <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold shadow-lg"
-                           style={{background: 'linear-gradient(135deg, #0046ff 0%, #0038cc 100%)'}}>
-                        <img 
-                          src={getAvatarSrc(leader.avatar, leader.username)} 
-                          alt={leader.username}
-                          className="w-12 h-12 rounded-full object-cover"
-                        />
-                      </div>
-                      
-                      {/* User Info */}
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-black text-lg">
-                          {leader.firstName && leader.lastName 
-                            ? `${leader.firstName} ${leader.lastName}`
-                            : leader.username
-                          }
-                        </h4>
-                        <p className="text-gray-600 text-sm">{title}</p>
-                      </div>
-                      
-                      {/* Metric Value */}
-                      <div className="text-right">
-                        <div className="text-lg font-bold text-black">
-                          {leader.metricValue} {selectedMetric === 'streak' ? 'days' : selectedMetric === 'goals' ? 'goals' : selectedMetric === 'checkins' ? 'check-ins' : ''}
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex-shrink-0 relative">
+                        <div className="absolute inset-0 rounded-full overflow-hidden shadow-sm">
+                          <img 
+                            src={getAvatarSrc(leader.avatar, leader.username)} 
+                            alt={leader.username}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(leader.username || 'U')}&background=0046ff&color=fff`;
+                            }}
+                          />
                         </div>
-                      </div>
-                      
-                      {/* Rank Change */}
-                      <div className="flex items-center gap-1">
-                        {leader.rankChange > 0 ? (
-                          <div className="flex items-center gap-1 text-green-600">
-                            <TrendingUp className="w-4 h-4" />
-                            <span className="text-sm">+{leader.rankChange}</span>
-                          </div>
-                        ) : leader.rankChange < 0 ? (
-                          <div className="flex items-center gap-1 text-red-600">
-                            <TrendingDown className="w-4 h-4" />
-                            <span className="text-sm">{leader.rankChange}</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1 text-gray-400">
-                            <Minus className="w-4 h-4" />
-                            <span className="text-sm">0</span>
+                        {isCurrentUser && (
+                          <div className="absolute -bottom-1 -right-1 bg-blue-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white dark:border-gray-800">
+                            YOU
                           </div>
                         )}
                       </div>
                       
-                      {/* Current User Badge */}
-                      {isCurrentUser && (
-                        <span className="text-white px-3 py-1 rounded-full text-sm font-medium"
-                              style={{backgroundColor: '#0046ff'}}>
-                          You
-                        </span>
-                      )}
+                      {/* User Info */}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <h4 className="font-semibold text-black dark:text-white text-sm sm:text-base truncate">
+                            {leader.firstName && leader.lastName 
+                              ? `${leader.firstName} ${leader.lastName}`
+                              : leader.username || 'Anonymous'
+                            }
+                          </h4>
+                          {isTop3 && (
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                              rank === 1 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' 
+                                : rank === 2 ? 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300' 
+                                : 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400'
+                            }`}>
+                              {rank === 1 ? '🥇' : rank === 2 ? '🥈' : '🥉'}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{title}</p>
+                          
+                          {/* Rank Change - Mobile */}
+                          <div className="sm:hidden flex items-center">
+                            {leader.rankChange > 0 ? (
+                              <div className="flex items-center text-green-600 dark:text-green-400">
+                                <TrendingUp className="w-3 h-3" />
+                                <span className="text-xs font-medium ml-0.5">+{leader.rankChange}</span>
+                              </div>
+                            ) : leader.rankChange < 0 ? (
+                              <div className="flex items-center text-red-600 dark:text-red-400">
+                                <TrendingDown className="w-3 h-3" />
+                                <span className="text-xs font-medium ml-0.5">{leader.rankChange}</span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center text-gray-400">
+                                <Minus className="w-3 h-3" />
+                                <span className="text-xs ml-0.5">0</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Metric Value */}
+                      <div className="flex items-center gap-3 ml-2">
+                        <div className="text-right">
+                          <div className="text-base sm:text-lg font-bold text-black dark:text-white whitespace-nowrap">
+                            {leader.metricValue}
+                            <span className="text-xs sm:text-sm font-normal text-gray-500 dark:text-gray-400 ml-1">
+                              {selectedMetric === 'streak' ? 'days' : 
+                               selectedMetric === 'goals' ? 'goals' : 
+                               selectedMetric === 'checkins' ? 'check-ins' : ''}
+                            </span>
+                          </div>
+                          
+                          {/* Rank Change - Desktop */}
+                          <div className="hidden sm:flex items-center justify-end mt-0.5">
+                            {leader.rankChange > 0 ? (
+                              <div className="flex items-center text-green-600 dark:text-green-400">
+                                <TrendingUp className="w-3 h-3" />
+                                <span className="text-xs font-medium ml-0.5">+{leader.rankChange}</span>
+                              </div>
+                            ) : leader.rankChange < 0 ? (
+                              <div className="flex items-center text-red-600 dark:text-red-400">
+                                <TrendingDown className="w-3 h-3" />
+                                <span className="text-xs font-medium ml-0.5">{leader.rankChange}</span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center text-gray-400">
+                                <Minus className="w-3 h-3" />
+                                <span className="text-xs ml-0.5">0</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {/* Current User Badge - Mobile */}
+                        {isCurrentUser && (
+                          <div className="sm:hidden w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center text-white text-[10px] font-bold">
+                            ✓
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </motion.div>
                 );
@@ -417,27 +510,27 @@ const Leaderboard = () => {
 
         {/* Achievement Badges Section */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.6 }}
-          className="mt-8"
+          transition={{ duration: 0.4, delay: 0.4 }}
+          className="mt-6 sm:mt-8"
         >
-          <h3 className="text-lg font-semibold text-black mb-4">Achievement Badges</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white rounded-lg p-4 text-center border border-gray-200">
-              <div className="text-2xl mb-2">🔥</div>
-              <h4 className="font-semibold text-black text-sm">Streak Master</h4>
-              <p className="text-gray-600 text-xs">30+ day streak</p>
+          <h3 className="text-base sm:text-lg font-semibold text-black dark:text-white mb-3 sm:mb-4">Achievement Badges</h3>
+          <div className="grid grid-cols-3 sm:grid-cols-3 gap-2 sm:gap-3">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-3 sm:p-4 text-center border border-gray-200 dark:border-gray-700 hover:shadow-sm transition-shadow">
+              <div className="text-2xl sm:text-3xl mb-1.5 sm:mb-2">🔥</div>
+              <h4 className="font-semibold text-black dark:text-white text-xs sm:text-sm mb-0.5">Streak Master</h4>
+              <p className="text-gray-500 dark:text-gray-400 text-[10px] sm:text-xs">30+ day streak</p>
             </div>
-            <div className="bg-white rounded-lg p-4 text-center border border-gray-200">
-              <div className="text-2xl mb-2">🎯</div>
-              <h4 className="font-semibold text-black text-sm">Goal Crusher</h4>
-              <p className="text-gray-600 text-xs">10+ goals achieved</p>
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-3 sm:p-4 text-center border border-gray-200 dark:border-gray-700 hover:shadow-sm transition-shadow">
+              <div className="text-2xl sm:text-3xl mb-1.5 sm:mb-2">🎯</div>
+              <h4 className="font-semibold text-black dark:text-white text-xs sm:text-sm mb-0.5">Goal Crusher</h4>
+              <p className="text-gray-500 dark:text-gray-400 text-[10px] sm:text-xs">10+ goals achieved</p>
             </div>
-            <div className="bg-white rounded-lg p-4 text-center border border-gray-200">
-              <div className="text-2xl mb-2">👑</div>
-              <h4 className="font-semibold text-black text-sm">Consistency King</h4>
-              <p className="text-gray-600 text-xs">100+ check-ins</p>
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-3 sm:p-4 text-center border border-gray-200 dark:border-gray-700 hover:shadow-sm transition-shadow">
+              <div className="text-2xl sm:text-3xl mb-1.5 sm:mb-2">👑</div>
+              <h4 className="font-semibold text-black dark:text-white text-xs sm:text-sm mb-0.5">Consistency King</h4>
+              <p className="text-gray-500 dark:text-gray-400 text-[10px] sm:text-xs">100+ check-ins</p>
             </div>
           </div>
         </motion.div>

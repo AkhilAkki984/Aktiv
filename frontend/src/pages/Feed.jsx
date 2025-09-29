@@ -13,7 +13,8 @@ import {
   RefreshCw,
   Users,
   TrendingUp,
-  Activity
+  Activity,
+  X
 } from 'lucide-react';
 
 const Feed = () => {
@@ -282,10 +283,10 @@ const Feed = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
         <div className="text-center">
-          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Loading feed...</p>
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+          <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base">Loading feed...</p>
         </div>
       </div>
     );
@@ -293,68 +294,103 @@ const Feed = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-7xl mx-auto px-4 py-6">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <BackButton />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 sm:mb-6 gap-3 sm:gap-4">
+          <div className="flex items-center gap-3">
+            <div className="sm:hidden">
+              <BackButton />
+            </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                Community Feed
-              </h1>
-              <p className="text-gray-600 dark:text-gray-400">
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+                  Community Feed
+                </h1>
+                {isConnected && (
+                  <div className="hidden sm:flex items-center gap-1.5 text-green-600 text-xs bg-green-50 dark:bg-green-900/30 px-2 py-0.5 rounded-full">
+                    <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
+                    <span>{onlineUsers.size} online</span>
+                  </div>
+                )}
+              </div>
+              <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
                 Share your fitness journey with the community
               </p>
             </div>
           </div>
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3">
             {isConnected && (
-              <div className="flex items-center gap-2 text-green-600">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span className="text-sm">{onlineUsers.size} online</span>
+              <div className="sm:hidden flex items-center gap-1.5 text-green-600 text-xs bg-green-50 dark:bg-green-900/30 px-2 py-1 rounded-full">
+                <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
+                <span>{onlineUsers.size} online</span>
               </div>
             )}
             
-            <button
-              onClick={handleRefresh}
-              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 transition-colors"
-              title="Refresh feed"
-            >
-              <RefreshCw size={20} />
-            </button>
-            
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 transition-colors"
-              title="Filter posts"
-            >
-              <Filter size={20} />
-            </button>
+            <div className="flex items-center gap-1 sm:gap-2">
+              <button
+                onClick={handleRefresh}
+                className="p-2 sm:p-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 transition-colors"
+                title="Refresh feed"
+                aria-label="Refresh feed"
+              >
+                <RefreshCw size={18} className="sm:w-5 sm:h-5" />
+              </button>
+              
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className={`p-2 sm:p-2.5 rounded-lg transition-colors ${
+                  showFilters 
+                    ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400' 
+                    : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'
+                }`}
+                title="Filter posts"
+                aria-label="Filter posts"
+              >
+                <Filter size={18} className="sm:w-5 sm:h-5" />
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Filters */}
         {showFilters && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6">
-            <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Filter by Category</h3>
-            <div className="flex flex-wrap gap-2">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-4 sm:mb-6 overflow-hidden">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-base sm:text-lg text-gray-900 dark:text-white">Filter by Category</h3>
+              <button 
+                onClick={() => setShowFilters(false)}
+                className="sm:hidden p-1 -mr-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                aria-label="Close filters"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2 overflow-x-auto pb-2 -mx-1 px-1">
               {categories.map(category => {
                 const stats = categoryStats[category] || { icon: Activity, color: 'text-gray-600', bg: 'bg-gray-100' };
                 const Icon = stats.icon;
+                const isSelected = selectedCategory === category;
                 
                 return (
                   <button
                     key={category}
-                    onClick={() => handleCategoryChange(category)}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors ${
-                      selectedCategory === category
-                        ? 'bg-blue-100 text-blue-800 border-blue-200'
+                    onClick={() => {
+                      handleCategoryChange(category);
+                      // On mobile, close filters after selection
+                      if (window.innerWidth < 640) {
+                        setShowFilters(false);
+                      }
+                    }}
+                    className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 sm:py-2 rounded-full border text-sm transition-colors ${
+                      isSelected
+                        ? 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-400'
                         : 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600'
                     }`}
+                    aria-pressed={isSelected}
                   >
-                    <Icon size={16} />
-                    <span className="text-sm">{category}</span>
+                    <Icon size={14} className="flex-shrink-0" />
+                    <span>{category}</span>
                   </button>
                 );
               })}
@@ -363,9 +399,9 @@ const Feed = () => {
         )}
 
         {/* Main Content Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Left Sidebar - Profile Card */}
-          <div className="lg:col-span-1">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
+          {/* Left Sidebar - Profile Card - Hidden on mobile */}
+          <div className="hidden lg:block lg:col-span-1">
             {/* User Profile Card - Sticky */}
             <div className="sticky top-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
               <div className="p-6 text-center">
@@ -432,33 +468,36 @@ const Feed = () => {
           </div>
 
           {/* Main Feed */}
-          <div className="lg:col-span-3 space-y-6">
+          <div className="lg:col-span-3 space-y-4 sm:space-y-6">
             {/* Post Composer */}
             <PostComposer onPostCreated={handlePostCreated} socket={socket} />
 
             {/* Posts Feed */}
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               {posts.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Activity size={32} className="text-gray-400" />
+                <div className="text-center py-8 sm:py-12 px-2">
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                    <Activity size={28} className="text-gray-400 w-6 h-6 sm:w-8 sm:h-8" />
                   </div>
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                  <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white mb-1 sm:mb-2">
                     No posts yet
                   </h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">
+                  <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 max-w-md mx-auto">
                     Be the first to share your fitness journey!
                   </p>
                 </div>
               ) : (
-                posts.map(post => (
-                  <PostCard
-                    key={post._id}
-                    post={post}
-                    onUpdate={handlePostUpdate}
-                    socket={socket}
-                  />
-                ))
+                <div className="grid grid-cols-1 gap-4 sm:gap-6">
+                  {posts.map(post => (
+                    <div key={post._id} className="w-full">
+                      <PostCard
+                        post={post}
+                        onUpdate={handlePostUpdate}
+                        socket={socket}
+                      />
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           </div>
@@ -466,16 +505,17 @@ const Feed = () => {
 
         {/* Load more indicator */}
         {hasMore && (
-          <div ref={loadMoreRef} className="flex justify-center py-8">
+          <div ref={loadMoreRef} className="flex justify-center py-6 sm:py-8">
             {loadingMore ? (
-              <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+              <div className="flex items-center gap-2 text-sm sm:text-base text-gray-600 dark:text-gray-400">
                 <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
                 <span>Loading more posts...</span>
               </div>
             ) : (
               <button
                 onClick={loadMore}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm sm:text-base font-medium"
+                disabled={loadingMore}
               >
                 Load More Posts
               </button>
@@ -485,7 +525,7 @@ const Feed = () => {
 
         {/* End of feed */}
         {!hasMore && posts.length > 0 && (
-          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+          <div className="text-center py-6 sm:py-8 text-gray-500 dark:text-gray-400 text-sm sm:text-base">
             <p>You've reached the end of the feed</p>
           </div>
         )}

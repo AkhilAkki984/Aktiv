@@ -17,12 +17,12 @@ import {
   LogOut,
   Target,
   CheckCircle,
-  Pause,
-  Play,
-  BarChart3,
   Trash2,
+  Menu,
+  X,
+  RefreshCw,
 } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import GoalForm from "../components/GoalForm.jsx";
 import BackButton from "../components/BackButton.jsx";
 
@@ -33,8 +33,10 @@ const Goals = () => {
   const { enqueueSnackbar } = useSnackbar();
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [goals, setGoals] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [showGoalForm, setShowGoalForm] = useState(false);
   const [editingGoal, setEditingGoal] = useState(null);
 
@@ -44,88 +46,36 @@ const Goals = () => {
   };
 
   // Fetch goals data
-  useEffect(() => {
-    const fetchGoals = async () => {
-      try {
-        setLoading(true);
-        console.log('Fetching goals...');
-        const response = await goalsAPI.getGoals();
-        console.log('Goals fetched successfully:', response.data);
-        
-        // Filter out completed goals and sort by creation date
-        const activeGoals = response.data
-          .filter(goal => goal.status !== 'completed')
-          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        
-        console.log('Active goals after filtering:', activeGoals);
-        setGoals(activeGoals);
-      } catch (err) {
-        console.error('Failed to fetch goals:', err);
-        enqueueSnackbar('Failed to load goals', { variant: 'error' });
-        console.log('Using dummy goals as fallback');
-        setGoals(getDummyGoals());
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchGoals = async () => {
+    try {
+      setLoading(true);
+      const response = await goalsAPI.getGoals();
+      
+      const activeGoals = response.data
+        .filter(goal => goal.status !== 'completed')
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      
+      setGoals(activeGoals);
+    } catch (err) {
+      console.error('Failed to fetch goals:', err);
+      enqueueSnackbar('Failed to load goals', { variant: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  const refreshGoals = async () => {
+    setRefreshing(true);
+    await fetchGoals();
+    setRefreshing(false);
+  };
+
+  useEffect(() => {
     fetchGoals();
   }, [enqueueSnackbar]);
 
-  // Dummy data for demonstration
-  const getDummyGoals = () => [
-    {
-      _id: '1',
-      title: 'Morning Workout',
-      status: 'active',
-      schedule: { frequency: 'daily', time: '6:00 AM' },
-      progress: { completedCheckIns: 5, targetCheckIns: 7, currentStreak: 3 },
-      category: 'fitness',
-      createdAt: new Date()
-    },
-    {
-      _id: '2',
-      title: 'Read 30 Pages',
-      status: 'active',
-      schedule: { frequency: 'daily', time: '8:00 PM' },
-      progress: { completedCheckIns: 4, targetCheckIns: 7, currentStreak: 2 },
-      category: 'learning',
-      createdAt: new Date()
-    },
-    {
-      _id: '3',
-      title: 'Meditation',
-      status: 'active',
-      schedule: { frequency: 'daily', time: '7:00 AM' },
-      progress: { completedCheckIns: 7, targetCheckIns: 7, currentStreak: 7 },
-      category: 'health',
-      createdAt: new Date()
-    },
-    {
-      _id: '4',
-      title: 'Learn Spanish',
-      status: 'paused',
-      schedule: { frequency: 'weekdays', time: '7:30 PM' },
-      progress: { completedCheckIns: 2, targetCheckIns: 5, currentStreak: 0 },
-      category: 'learning',
-      createdAt: new Date()
-    },
-    {
-      _id: '5',
-      title: 'Drink 8 Glasses Water',
-      status: 'active',
-      schedule: { frequency: 'daily', time: 'Throughout day' },
-      progress: { completedCheckIns: 6, targetCheckIns: 7, currentStreak: 4 },
-      category: 'health',
-      createdAt: new Date()
-    }
-  ];
-
   const handleCheckIn = async (goalId, notes = '') => {
     try {
-      console.log('Starting check-in for goal:', goalId);
-
-      // Always include timezone offset in the request
       const tzOffsetMinutes = new Date().getTimezoneOffset();
 
       // Refetch latest goal to avoid stale state
@@ -161,7 +111,6 @@ const Goals = () => {
         updatedGoal = await doCheckIn();
       } catch (err) {
         const msg = err?.response?.data?.msg || '';
-        // Fallback for older servers enforcing time window: relax to all-day and retry once
         if (typeof msg === 'string' && msg.includes('only available')) {
           try {
             await goalsAPI.updateGoal(goalId, { schedule: { ...freshGoal.schedule, time: 'Throughout day' } });
@@ -174,8 +123,6 @@ const Goals = () => {
           throw err;
         }
       }
-
-      console.log('Check-in response:', updatedGoal);
 
       const progressPercentage = getProgressPercentage(updatedGoal);
       if (progressPercentage >= 100) {
@@ -204,7 +151,6 @@ const Goals = () => {
 
   const handleResumeGoal = async (goalId) => {
     try {
-      console.log('Resuming goal:', goalId);
       const response = await goalsAPI.updateGoal(goalId, { status: 'active' });
       const updatedGoal = response.data;
       setGoals(goals.map(goal => goal._id === goalId ? updatedGoal : goal));
@@ -216,31 +162,14 @@ const Goals = () => {
   };
 
   const handleGoalSaved = (savedGoal) => {
-    console.log('Goal saved callback:', {
-      isEdit: !!editingGoal,
-      editingGoalId: editingGoal?._id,
-      savedGoal: savedGoal,
-      currentGoals: goals.length
-    });
-    
     if (editingGoal) {
-      // If goal was completed, remove it from the goals list
       if (savedGoal.status === 'completed') {
-        const filteredGoals = goals.filter(goal => goal._id !== editingGoal._id);
-        console.log('Goal completed, removed from list:', filteredGoals);
-        setGoals(filteredGoals);
+        setGoals(goals.filter(goal => goal._id !== editingGoal._id));
       } else {
-        // Otherwise, update the goal in the list
-        const updatedGoals = goals.map(goal => 
-          goal._id === editingGoal._id ? savedGoal : goal
-        );
-        console.log('Updated goals after edit:', updatedGoals);
-        setGoals(updatedGoals);
+        setGoals(goals.map(goal => goal._id === editingGoal._id ? savedGoal : goal));
       }
     } else {
-      const newGoals = [savedGoal, ...goals];
-      console.log('New goals after create:', newGoals);
-      setGoals(newGoals);
+      setGoals([savedGoal, ...goals]);
     }
     setShowGoalForm(false);
     setEditingGoal(null);
@@ -261,31 +190,21 @@ const Goals = () => {
 
   const handleCompleteGoal = async (goalId) => {
     try {
-      console.log('Completing goal:', goalId);
-      
-      // Update goal status to completed
       const response = await goalsAPI.updateGoal(goalId, { 
         status: 'completed', 
         completedAt: new Date() 
       });
       
-      console.log('Goal completion response:', response.data);
-      
-      // Remove the completed goal from the goals list immediately
       setGoals(goals.filter(goal => goal._id !== goalId));
       enqueueSnackbar('Goal completed successfully! 🎉', { variant: 'success' });
       
-      // Trigger dashboard refresh
       localStorage.setItem('goal_completed', Date.now().toString());
       localStorage.setItem('dashboard_refresh', Date.now().toString());
       
-      // Refresh the goals list to ensure consistency
       setTimeout(async () => {
         try {
-          console.log('Refreshing goals list...');
           const response = await goalsAPI.getGoals();
           const activeGoals = response.data.filter(goal => goal.status !== 'completed');
-          console.log('Refreshed goals:', activeGoals);
           setGoals(activeGoals);
         } catch (err) {
           console.error('Failed to refresh goals:', err);
@@ -299,10 +218,10 @@ const Goals = () => {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'active': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-      case 'paused': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
-      case 'completed': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+      case 'active': return 'bg-green-100 text-green-800';
+      case 'paused': return 'bg-yellow-100 text-yellow-800';
+      case 'completed': return 'bg-blue-100 text-blue-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
@@ -322,148 +241,230 @@ const Goals = () => {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-white transition-colors">
-      {/* 🔹 Navbar */}
-      <header className="sticky top-0 z-50 flex items-center justify-between px-6 py-3 bg-white border-b border-gray-200 shadow-md">
-        {/* Left side with Back button and Logo */}
-        <div className="flex items-center gap-4">
-          <BackButton />
-          <div
-            onClick={() => navigate("/dashboard")}
-            className="flex items-center gap-2 cursor-pointer"
-          >
-            <div className="w-9 h-9 flex items-center justify-center rounded-full font-bold text-white" style={{backgroundColor: '#0046ff'}}>
-              A
-            </div>
-            <span className="text-xl font-bold text-black">Aktiv</span>
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="text-center max-w-md">
+          <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Target className="w-8 h-8 text-white" />
           </div>
-        </div>
-
-        {/* Nav Links */}
-        <nav className="hidden md:flex items-center gap-6 font-medium">
-          <button onClick={() => navigate("/dashboard")} className="cursor-pointer text-gray-600 hover:text-black transition-colors">Dashboard</button>
-          <button onClick={() => navigate("/goals")} className="cursor-pointer font-semibold transition-colors" style={{color: '#0046ff'}}>Goals</button>
-          <button onClick={() => navigate("/find-partners")} className="cursor-pointer text-gray-600 hover:text-black transition-colors">Find Partners</button>
-          <button onClick={() => navigate("/chat/samplePartnerId")} className="cursor-pointer text-gray-600 hover:text-black transition-colors">Chat</button>
-          <button onClick={() => navigate("/feed")} className="cursor-pointer text-gray-600 hover:text-black transition-colors">Feed</button>
-          <button onClick={() => navigate("/leaderboard")} className="cursor-pointer text-gray-600 hover:text-black transition-colors">Leaderboard</button>
-        </nav>
-
-        {/* Right Side */}
-        <div className="flex items-center gap-4 relative">
-          {/* Theme toggle */}
+          <h2 className="text-2xl font-bold text-gray-900 mb-3">
+            Access Your Goals
+          </h2>
+          <p className="text-gray-600 mb-6">
+            Please log in to view and manage your goals.
+          </p>
           <button
-            onClick={toggleMode}
-            className="p-2 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition cursor-pointer"
+            onClick={() => navigate('/login')}
+            className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
           >
-            {mode === "light" ? (
-              <Moon className="w-5 h-5 text-gray-800" />
-            ) : (
-              <Sun className="w-5 h-5 text-yellow-400" />
-            )}
+            Sign In to Continue
           </button>
+        </div>
+      </div>
+    );
+  }
 
-          {/* Notifications */}
-          <div className="relative cursor-pointer">
-            <Bell className="w-6 h-6 text-gray-600 dark:text-gray-300" />
-            <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-red-500"></span>
-          </div>
-
-          {/* Profile Dropdown */}
-          <div
-            className="flex items-center gap-2 cursor-pointer"
-            onClick={() => setMenuOpen(!menuOpen)}
-          >
-            <img
-              src={getAvatarSrc(user?.avatar, user?.username)}
-              alt="profile"
-              className="w-9 h-9 rounded-full border border-gray-300 dark:border-gray-600"
-            />
-            <span className="hidden sm:block font-medium text-gray-800 dark:text-gray-100">
-              {user?.username || "Guest User"}
-            </span>
-            <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-300" />
-          </div>
-
-          {/* Dropdown Menu */}
-          {menuOpen && (
-            <div className="absolute right-0 top-14 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-2">
-              <button
-                onClick={() => {
-                  navigate("/profile");
-                  setMenuOpen(false);
-                }}
-                className="flex items-center gap-2 w-full px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Enhanced Navbar */}
+      <header className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            {/* Logo and Back Button */}
+            <div className="flex items-center space-x-4">
+              <BackButton />
+              <div 
+                onClick={() => navigate("/dashboard")}
+                className="flex items-center space-x-3 cursor-pointer"
               >
-                <Edit3 className="w-4 h-4" />
-                Edit Profile
+                <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center shadow-md">
+                  <span className="text-white font-bold text-lg">A</span>
+                </div>
+                <span className="text-xl font-bold text-gray-900 hidden sm:block">Aktiv</span>
+              </div>
+            </div>
+
+            {/* Desktop Navigation */}
+            <nav className="hidden md:flex items-center space-x-8">
+              {[
+                { name: 'Dashboard', path: '/dashboard' },
+                { name: 'Goals', path: '/goals', active: true },
+                { name: 'Partners', path: '/find-partners' },
+                 { name: 'Chat', path: '/chat/inbox' },
+                { name: 'Feed', path: '/feed' },
+                { name: 'Leaderboard', path: '/leaderboard' }
+              ].map((item) => (
+                <button
+                  key={item.name}
+                  onClick={() => navigate(item.path)}
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    item.active 
+                      ? 'text-blue-600 bg-blue-50' 
+                      : 'text-gray-700 hover:text-blue-600'
+                  }`}
+                >
+                  {item.name}
+                </button>
+              ))}
+            </nav>
+
+            {/* Right Side Actions */}
+            <div className="flex items-center space-x-4">
+              {/* Theme Toggle */}
+              <button
+                onClick={toggleMode}
+                className="p-2 text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-colors"
+                aria-label="Toggle theme"
+              >
+                {mode === "light" ? <Moon size={20} /> : <Sun size={20} />}
               </button>
-              <hr className="border-gray-200 dark:border-gray-700 my-1" />
+
+              {/* Notifications */}
+              <button className="p-2 text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-colors relative">
+                <Bell size={20} />
+                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+              </button>
+
+              {/* Profile Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setMenuOpen(!menuOpen)}
+                  className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  <img
+                    src={getAvatarSrc(user?.avatar, user?.username)}
+                    alt="Profile"
+                    className="w-8 h-8 rounded-full border border-gray-300"
+                  />
+                  <span className="text-sm font-medium text-gray-700 hidden sm:block">
+                    {user?.username}
+                  </span>
+                  <ChevronDown size={16} className="text-gray-500" />
+                </button>
+
+                <AnimatePresence>
+                  {menuOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 10 }}
+                      className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50"
+                    >
+                      <button
+                        onClick={() => { navigate("/profile"); setMenuOpen(false); }}
+                        className="flex items-center space-x-3 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        <Edit3 size={16} />
+                        <span>Edit Profile</span>
+                      </button>
+                      <button
+                        onClick={handleLogout}
+                        className="flex items-center space-x-3 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                      >
+                        <LogOut size={16} />
+                        <span>Sign Out</span>
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Mobile menu button */}
               <button
-                onClick={handleLogout}
-                className="flex items-center gap-2 w-full px-4 py-2 text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                onClick={() => setMobileNavOpen(!mobileNavOpen)}
+                className="md:hidden p-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
               >
-                <LogOut className="w-4 h-4" />
-                Logout
+                {mobileNavOpen ? <X size={24} /> : <Menu size={24} />}
               </button>
             </div>
-          )}
+          </div>
         </div>
+
+        {/* Mobile Navigation */}
+        <AnimatePresence>
+          {mobileNavOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="md:hidden bg-white border-t border-gray-200"
+            >
+              <div className="px-4 py-3 space-y-1">
+                {[
+                  { name: 'Dashboard', path: '/dashboard' },
+                  { name: 'Goals', path: '/goals' },
+                  { name: 'Partners', path: '/find-partners' },
+                   { name: 'Chat', path: '/chat/inbox' },
+                  { name: 'Feed', path: '/feed' },
+                  { name: 'Leaderboard', path: '/leaderboard' }
+                ].map((item) => (
+                  <button
+                    key={item.name}
+                    onClick={() => { navigate(item.path); setMobileNavOpen(false); }}
+                    className="block w-full text-left px-3 py-2 text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50 rounded-md transition-colors"
+                  >
+                    {item.name}
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </header>
 
-      {/* 🔹 Main Content */}
-      <main className="max-w-6xl mx-auto p-6">
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Header Section */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="flex items-center justify-between mb-8"
-        >
-          <div>
-            <h1 className="text-3xl font-bold text-black mb-2">
-              My Goals
-            </h1>
-            <p className="text-gray-600">
-              Track your progress and stay consistent.
-            </p>
-          </div>
-          <button
-            onClick={handleCreateGoal}
-            className="flex items-center gap-2 px-6 py-3 rounded-lg transition-colors font-medium text-white"
-            style={{backgroundColor: '#0046ff'}}
+        <div className="mb-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col sm:flex-row sm:items-center sm:justify-between"
           >
-            <Plus className="w-5 h-5" />
-            Create New Goal
-          </button>
-        </motion.div>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                My Goals
+              </h1>
+              <p className="text-gray-600 mt-2">
+                Track your progress and stay consistent with your daily habits
+              </p>
+            </div>
+            <div className="flex items-center space-x-3 mt-4 sm:mt-0">
+              <button
+                onClick={refreshGoals}
+                disabled={refreshing}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                <RefreshCw size={16} className={`mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                {refreshing ? 'Refreshing...' : 'Refresh'}
+              </button>
+              <button
+                onClick={handleCreateGoal}
+                className="inline-flex items-center px-4 sm:px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm sm:text-base"
+              >
+                <Plus size={20} className="mr-2" />
+                Create Goal
+              </button>
+            </div>
+          </motion.div>
+        </div>
 
         {/* Goals Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {loading ? (
-            // Loading skeleton
             Array.from({ length: 6 }).map((_, idx) => (
-              <div key={idx} className="p-6 rounded-xl bg-white dark:bg-[#1e293b] shadow-md border border-gray-200 dark:border-gray-700 animate-pulse">
-                <div className="h-6 w-32 bg-gray-300 dark:bg-gray-600 rounded mb-3"></div>
-                <div className="h-4 w-16 bg-gray-300 dark:bg-gray-600 rounded mb-4"></div>
-                <div className="h-3 w-24 bg-gray-300 dark:bg-gray-600 rounded mb-2"></div>
-                <div className="w-full bg-gray-300 dark:bg-gray-700 h-2 rounded-full mb-4"></div>
-                <div className="flex gap-2">
-                  <div className="h-8 w-20 bg-gray-300 dark:bg-gray-600 rounded"></div>
-                  <div className="h-8 w-16 bg-gray-300 dark:bg-gray-600 rounded"></div>
-                </div>
-              </div>
+              <GoalCardSkeleton key={idx} />
             ))
-          ) : (
+          ) : goals.length > 0 ? (
             <>
-              {/* Goal Cards */}
               {goals
                 .filter(goal => goal.status !== 'completed')
-                .map((goal) => (
+                .map((goal, index) => (
                 <GoalCard
                   key={goal._id}
                   goal={goal}
+                  index={index}
                   onCheckIn={handleCheckIn}
                   onResume={handleResumeGoal}
                   onEdit={handleEditGoal}
@@ -474,25 +475,25 @@ const Goals = () => {
                   getFrequencyText={getFrequencyText}
                 />
               ))}
-              
-              {/* Create New Goal Card */}
-              <motion.div
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={handleCreateGoal}
-                className="p-6 rounded-xl bg-white dark:bg-[#1e293b] shadow-md border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-blue-500 dark:hover:border-blue-400 transition-colors cursor-pointer flex flex-col items-center justify-center min-h-[200px]"
-              >
-                <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center mb-4">
-                  <Plus className="w-8 h-8 text-blue-600 dark:text-blue-400" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-2">
-                  Create New Goal
-                </h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
-                  Set a new goal and stay accountable with partners
-                </p>
-              </motion.div>
+              <CreateGoalCard onCreateGoal={handleCreateGoal} />
             </>
+          ) : (
+            <div className="col-span-full text-center py-12">
+              <Target className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                No goals yet
+              </h3>
+              <p className="text-gray-600 mb-6 max-w-md mx-auto">
+                Start your journey by creating your first goal. Track your progress and build consistent habits.
+              </p>
+              <button
+                onClick={handleCreateGoal}
+                className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+              >
+                <Plus size={20} className="mr-2" />
+                Create Your First Goal
+              </button>
+            </div>
           )}
         </div>
       </main>
@@ -513,16 +514,15 @@ const Goals = () => {
 };
 
 // Goal Card Component
-const GoalCard = ({ goal, onCheckIn, onResume, onEdit, onDelete, onComplete, getStatusColor, getProgressPercentage, getFrequencyText }) => {
+const GoalCard = ({ goal, index, onCheckIn, onResume, onEdit, onDelete, getStatusColor, getProgressPercentage, getFrequencyText }) => {
   const progressPercentage = getProgressPercentage(goal);
-  // Check if already checked in today - look at checkIns array instead of lastCheckIn
+  
   const isCheckedInToday = goal.checkIns && goal.checkIns.some(checkIn => {
     const checkInDate = new Date(checkIn.date);
     const today = new Date();
     return checkInDate.toDateString() === today.toDateString();
   });
 
-  // Check if current time is within the allowed window
   const getTimeWindowStatus = (goal) => {
     const now = new Date();
     const timeString = goal.schedule.time;
@@ -531,7 +531,6 @@ const GoalCard = ({ goal, onCheckIn, onResume, onEdit, onDelete, onComplete, get
       return { canCheckIn: true, message: null };
     }
     
-    // Parse time string (e.g., "5:00 PM")
     const timeMatch = timeString.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
     if (!timeMatch) {
       return { canCheckIn: true, message: null };
@@ -541,11 +540,8 @@ const GoalCard = ({ goal, onCheckIn, onResume, onEdit, onDelete, onComplete, get
     const minutes = parseInt(timeMatch[2]);
     const period = timeMatch[3]?.toUpperCase();
     
-    if (period === 'PM' && hours !== 12) {
-      hours += 12;
-    } else if (period === 'AM' && hours === 12) {
-      hours = 0;
-    }
+    if (period === 'PM' && hours !== 12) hours += 12;
+    else if (period === 'AM' && hours === 12) hours = 0;
     
     const startTime = new Date(now);
     startTime.setHours(hours, minutes, 0, 0);
@@ -579,135 +575,177 @@ const GoalCard = ({ goal, onCheckIn, onResume, onEdit, onDelete, onComplete, get
 
   const timeWindowStatus = getTimeWindowStatus(goal);
   const canCheckInNow = !isCheckedInToday && timeWindowStatus.canCheckIn;
-  
-  // Debug logging for check-in button visibility
-  console.log('Goal check-in status:', {
-    goalId: goal._id,
-    title: goal.title,
-    status: goal.status,
-    isCheckedInToday,
-    timeWindowStatus,
-    canCheckInNow,
-    checkIns: goal.checkIns,
-    lastCheckIn: goal.progress.lastCheckIn
-  });
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="p-6 rounded-xl bg-white dark:bg-[#1e293b] shadow-md border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-shadow"
+      transition={{ delay: index * 0.1 }}
+      whileHover={{ y: -2 }}
+      className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all"
     >
       {/* Header */}
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex-1">
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-2">
-            {goal.title}
-          </h3>
-          {goal.description && (
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-              {goal.description}
+      <div className="p-4 sm:p-6">
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex-1 min-w-0">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2 truncate">
+              {goal.title}
+            </h3>
+            {goal.description && (
+              <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+                {goal.description}
+              </p>
+            )}
+            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(goal.status)}`}>
+              {goal.status.charAt(0).toUpperCase() + goal.status.slice(1)}
+            </span>
+          </div>
+          <button
+            onClick={() => onDelete(goal._id)}
+            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0 ml-2"
+            title="Delete goal"
+          >
+            <Trash2 size={16} />
+          </button>
+        </div>
+
+        {/* Progress */}
+        <div className="mb-4">
+          <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
+            <span>Weekly Progress</span>
+            <span className="font-medium">
+              {goal.progress.completedCheckIns}/{goal.progress.targetCheckIns} days
+            </span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div
+              className={`h-2 rounded-full transition-all duration-300 ${
+                progressPercentage >= 100 
+                  ? 'bg-green-500' 
+                  : progressPercentage >= 90 
+                  ? 'bg-yellow-500' 
+                  : 'bg-blue-500'
+              }`}
+              style={{ width: `${progressPercentage}%` }}
+            />
+          </div>
+          {progressPercentage >= 90 && progressPercentage < 100 && (
+            <p className="text-xs text-yellow-600 mt-1">
+              Almost there! {100 - progressPercentage}% to completion
             </p>
           )}
-          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(goal.status)}`}>
-            {goal.status.charAt(0).toUpperCase() + goal.status.slice(1)}
-          </span>
+          {progressPercentage >= 100 && (
+            <p className="text-xs text-green-600 mt-1">
+              🎉 Goal completed!
+            </p>
+          )}
         </div>
-        <button
-          onClick={() => onDelete(goal._id)}
-          className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-          title="Delete goal"
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
-      </div>
 
-      {/* Progress */}
-      <div className="mb-4">
-        <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400 mb-2">
-          <span>Weekly Progress</span>
-          <span>{goal.progress.completedCheckIns}/{goal.progress.targetCheckIns} days</span>
+        {/* Schedule */}
+        <div className="flex items-center space-x-4 text-sm text-gray-600 mb-4">
+          <div className="flex items-center space-x-1">
+            <Calendar size={16} />
+            <span>{getFrequencyText(goal.schedule.frequency)}</span>
+          </div>
+          <div className="flex items-center space-x-1">
+            <Clock size={16} />
+            <span>{goal.schedule.time}</span>
+          </div>
         </div>
-        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-          <div
-            className={`h-2 rounded-full transition-all duration-300 ${
-              progressPercentage >= 100 
-                ? 'bg-green-600' 
-                : progressPercentage >= 90 
-                ? 'bg-yellow-500' 
-                : 'bg-blue-600'
-            }`}
-            style={{ width: `${progressPercentage}%` }}
-          ></div>
-        </div>
-        {progressPercentage >= 90 && progressPercentage < 100 && (
-          <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
-            Almost there! {100 - progressPercentage}% to completion
-          </p>
+
+        {/* Time Window Status */}
+        {!timeWindowStatus.canCheckIn && !isCheckedInToday && (
+          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-sm text-yellow-800">
+              ⏰ {timeWindowStatus.message}
+            </p>
+          </div>
         )}
-        {progressPercentage >= 100 && (
-          <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-            🎉 Goal completed!
-          </p>
-        )}
-      </div>
 
-      {/* Schedule */}
-      <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400 mb-4">
-        <div className="flex items-center gap-1">
-          <Calendar className="w-4 h-4" />
-          <span>{getFrequencyText(goal.schedule.frequency)}</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <Clock className="w-4 h-4" />
-          <span>{goal.schedule.time}</span>
-        </div>
-      </div>
-
-      {/* Time Window Status */}
-      {!timeWindowStatus.canCheckIn && !isCheckedInToday && (
-        <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-          <p className="text-sm text-yellow-800 dark:text-yellow-200">
-            ⏰ {timeWindowStatus.message}
-          </p>
-        </div>
-      )}
-
-      {/* Actions */}
-      <div className="flex gap-2">
-        {goal.status === 'active' ? (
+        {/* Actions */}
+        <div className="flex space-x-2">
+          {goal.status === 'active' ? (
+            <button
+              onClick={() => onCheckIn(goal._id)}
+              disabled={!canCheckInNow}
+              className={`flex-1 py-2 px-3 rounded-lg font-medium text-sm transition-colors ${
+                isCheckedInToday
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : !canCheckInNow
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-green-600 text-white hover:bg-green-700'
+              }`}
+            >
+              {isCheckedInToday ? 'Checked In' : !canCheckInNow ? 'Not Available' : 'Check In'}
+            </button>
+          ) : goal.status === 'paused' ? (
+            <button
+              onClick={() => onResume(goal._id)}
+              className="flex-1 py-2 px-3 rounded-lg font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors text-sm"
+            >
+              Resume
+            </button>
+          ) : null}
+          
           <button
-            onClick={() => onCheckIn(goal._id)}
-            disabled={!canCheckInNow}
-            className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
-              isCheckedInToday
-                ? 'bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-800 dark:text-gray-600'
-                : !canCheckInNow
-                ? 'bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-800 dark:text-gray-600'
-                : 'bg-green-600 text-white hover:bg-green-700'
-            }`}
+            onClick={() => onEdit(goal)}
+            className="py-2 px-3 rounded-lg font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors text-sm"
           >
-            {isCheckedInToday ? 'Checked In' : !canCheckInNow ? 'Not Available' : 'Check In'}
+            Edit
           </button>
-        ) : goal.status === 'paused' ? (
-          <button
-            onClick={() => onResume(goal._id)}
-            className="flex-1 py-2 px-4 rounded-lg font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-          >
-            Resume
-          </button>
-        ) : null}
-        
-        <button
-          onClick={() => onEdit(goal)}
-          className="py-2 px-4 rounded-lg font-medium border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-        >
-          Edit
-        </button>
+        </div>
       </div>
     </motion.div>
   );
 };
+
+const GoalCardSkeleton = () => (
+  <div className="bg-white rounded-xl shadow-sm border border-gray-200 animate-pulse">
+    <div className="p-4 sm:p-6">
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex-1 space-y-2">
+          <div className="h-6 bg-gray-200 rounded w-3/4"></div>
+          <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+          <div className="h-5 bg-gray-200 rounded w-20"></div>
+        </div>
+        <div className="w-8 h-8 bg-gray-200 rounded ml-2"></div>
+      </div>
+      <div className="space-y-2 mb-4">
+        <div className="flex justify-between">
+          <div className="h-4 bg-gray-200 rounded w-20"></div>
+          <div className="h-4 bg-gray-200 rounded w-16"></div>
+        </div>
+        <div className="w-full bg-gray-200 rounded-full h-2"></div>
+      </div>
+      <div className="flex space-x-4 mb-4">
+        <div className="h-4 bg-gray-200 rounded w-16"></div>
+        <div className="h-4 bg-gray-200 rounded w-20"></div>
+      </div>
+      <div className="flex space-x-2">
+        <div className="h-9 bg-gray-200 rounded flex-1"></div>
+        <div className="h-9 bg-gray-200 rounded w-16"></div>
+      </div>
+    </div>
+  </div>
+);
+
+const CreateGoalCard = ({ onCreateGoal }) => (
+  <motion.div
+    whileHover={{ scale: 1.02, y: -2 }}
+    whileTap={{ scale: 0.98 }}
+    onClick={onCreateGoal}
+    className="bg-white rounded-xl shadow-sm border-2 border-dashed border-gray-300 hover:border-blue-400 hover:shadow-md transition-all cursor-pointer flex flex-col items-center justify-center p-8 min-h-[200px]"
+  >
+    <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+      <Plus size={24} className="text-blue-600" />
+    </div>
+    <h3 className="text-lg font-semibold text-gray-900 mb-2 text-center">
+      Create New Goal
+    </h3>
+    <p className="text-sm text-gray-600 text-center">
+      Set a new goal and track your progress with daily check-ins
+    </p>
+  </motion.div>
+);
 
 export default Goals;
