@@ -4,6 +4,8 @@ import { Server } from "socket.io";
 import cors from "cors";
 import dotenv from "dotenv";
 import mongoose from "mongoose"; // Ensure mongoose is imported
+import path from "path";
+import fs from "fs";
 import jwt from "jsonwebtoken";
 import connectDB from "./config/db.js";
 import './config/cloudinary.js'; // Import to initialize Cloudinary
@@ -25,12 +27,59 @@ import goalsRoutes from "./routes/goals.js";
 import postsRoutes from "./routes/posts.js";
 import aiCoachRoutes from "./routes/aiCoach.js";
 
+// Ensure uploads directory exists
+const uploadsPath = path.join(process.cwd(), 'uploads');
+if (!fs.existsSync(uploadsPath)) {
+  fs.mkdirSync(uploadsPath, { recursive: true });
+  console.log('Created uploads directory at:', uploadsPath);
+}
 dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
 
-// Initialize app middleware
+// Basic middleware setup
+app.use(express.json());
+app.use(passport.initialize());
+
+// CORS configuration
+const corsOptions = {
+  origin: (origin, callback) => {
+    const allowedOrigins = [
+      'http://localhost:5173',
+      'http://localhost:3000',
+      'https://aktiv-frontend.onrender.com',
+      /^https:\/\/aktiv-frontend-.*\.onrender\.com$/,
+      /^https:\/\/.*\.onrender\.com$/
+    ];
+
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.some(pattern => {
+      if (typeof pattern === 'string') {
+        return origin === pattern;
+      } else if (pattern instanceof RegExp) {
+        return pattern.test(origin);
+      }
+      return false;
+    })) {
+      return callback(null, true);
+    }
+    
+    return callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
+  exposedHeaders: ["Content-Disposition"],
+  maxAge: 86400 // 24 hours
+};
+
+// Apply CORS middleware
+app.use(cors(corsOptions));
+
+// Security headers
 app.use((req, res, next) => {
   res.setHeader(
     'Content-Security-Policy',
@@ -39,84 +88,22 @@ app.use((req, res, next) => {
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;" +
     "font-src 'self' https://fonts.gstatic.com data:;" +
     "img-src 'self' data: https:;" +
-    "connect-src 'self' https://aktiv-backend.onrender.com wss://aktiv-backend.onrender.com;"
+    "connect-src 'self' https://api.cloudinary.com;" +
+    "media-src 'self' data: https:;" +
+    "frame-src 'self' https://www.youtube.com;"
   );
   next();
 });
-
-// CORS configuration
-const allowedOrigins = [
-  'http://localhost:5173',
-  'https://aktiv-frontend.onrender.com',
-  'https://aktiv-frontend-*.onrender.com',
-  'https://*.onrender.com'
-];
-
-app.use(cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.some(allowedOrigin => 
-      origin === allowedOrigin || 
-      origin.startsWith(allowedOrigin.replace('*', ''))
-    )) {
-      return callback(null, true);
-    }
-    
-    const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-    return callback(new Error(msg), false);
-  },
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: [
-    "Content-Type", 
-    "Authorization", 
-    "X-Requested-With",
-    "Accept",
-    "Origin"
-  ],
-  exposedHeaders: ["Content-Disposition"],
-  maxAge: 86400 // 24 hours
-}));
-
-// Handle preflight requests
-app.options('*', cors());
 
 // Root route
 app.get('/', (req, res) => {
   res.json({ message: 'Aktiv API is running' });
 });
-app.use(express.json());
-app.use(passport.initialize());
-
-// Routes
-app.use("/api/auth", authRoutes);
-app.use("/api/users", userRoutes);
-app.use("/api/chat", chatRoutes);
-app.use("/api/groups", groupRoutes);
-app.use("/api/upload", uploadRoutes);
-app.use("/api/feed", feedRoutes);
-app.use("/api/matches", matchRoutes);
-app.use("/api/partners", partnerRoutes);
-app.use("/api/leaderboard", leaderboardRoutes);
-app.use("/api/dashboard", dashboardRoutes);
-app.use("/api/goals", goalsRoutes);
-app.use("/api/posts", postsRoutes);
-app.use("/api/ai-coach", aiCoachRoutes);
-
-// Serve uploaded files statically with proper error handling
-const uploadsPath = path.join(process.cwd(), 'uploads');
-if (!fs.existsSync(uploadsPath)) {
-  fs.mkdirSync(uploadsPath, { recursive: true });
-  console.log('Created uploads directory at:', uploadsPath);
-}
 
 // Serve static files with cache control
 app.use('/uploads', express.static(uploadsPath, {
   etag: true,
   lastModified: true,
-  maxAge: '1y',
   setHeaders: (res, path) => {
     // Set appropriate cache headers for different file types
     if (/\.(jpg|jpeg|png|gif|webp|mp4|mov|avi|webm)$/i.test(path)) {
@@ -137,14 +124,47 @@ try {
   console.error('Error reading uploads directory:', err);
 }
 
+// API Routes
+app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/chat", chatRoutes);
+app.use("/api/groups", groupRoutes);
+app.use("/api/feed", feedRoutes);
+app.use("/api/matches", matchRoutes);
+app.use("/api/partners", partnerRoutes);
+app.use("/api/leaderboard", leaderboardRoutes);
+app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/goals", goalsRoutes);
+app.use("/api/posts", postsRoutes);
+app.use("/api/ai-coach", aiCoachRoutes);
+app.use("/api/upload", uploadRoutes);
+
 // Initialize Socket.IO
 const io = new Server(server, {
   cors: {
-    origin: [ "http://localhost:5173", // Development
-      "https://aktiv-frontend.onrender.com", // Your production frontend
-      "https://*.onrender.com" // All Render subdomains
-
-    ],
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+      
+      const allowedSocketOrigins = [
+        'http://localhost:5173',
+        'https://aktiv-frontend.onrender.com',
+        /https:\/\/aktiv-frontend-.*\.onrender\.com$/
+      ];
+      
+      if (allowedSocketOrigins.some(pattern => {
+        if (typeof pattern === 'string') {
+          return origin === pattern;
+        } else if (pattern instanceof RegExp) {
+          return pattern.test(origin);
+        }
+        return false;
+      })) {
+        return callback(null, true);
+      }
+      
+      return callback(new Error('Not allowed by CORS'));
+    },
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
     allowedHeaders: ["Content-Type", "Authorization"]

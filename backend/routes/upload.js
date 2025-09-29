@@ -89,7 +89,8 @@ const upload = multer({
 /**
  * ✅ Upload media file (image or video)
  */
-router.post("/media", auth, (req, res) => {
+router.post("/media", auth, async (req, res, next) => {
+  // Handle the upload with proper error handling
   upload(req, res, async (err) => {
     try {
       if (err instanceof multer.MulterError) {
@@ -121,32 +122,19 @@ router.post("/media", auth, (req, res) => {
         });
       }
 
-    // Handle HEIC/HEIF files
-    let fileBuffer = req.file.buffer;
-    if (['image/heic', 'image/heif'].includes(req.file.mimetype.toLowerCase())) {
-      try {
-        fileBuffer = await convertHeicToJpg(fileBuffer);
-        req.file.mimetype = 'image/jpeg';
-        req.file.originalname = req.file.originalname.replace(/\.(heic|heif)$/i, '.jpg');
-        req.file.filename = req.file.filename.replace(/\.(heic|heif)$/i, '.jpg');
-      } catch (conversionErr) {
-        console.error('HEIC conversion error:', conversionErr);
-        return res.status(400).json({
-          success: false,
-          error: 'Failed to process HEIC/HEIF image. Please convert to JPEG/PNG and try again.'
-        });
-      }
-    }
-
+    // For now, we'll skip HEIC/HEIF conversion as it requires additional setup
+    // and we're using disk storage which doesn't provide direct buffer access
+    
     const fileType = req.file.mimetype.split('/')[0];
     const mediaType = fileType === 'image' ? 'image' : 'video';
+    const fileUrl = `/uploads/chat_media/${req.file.filename}`;
     
-      // Return file information
-      res.json({
-        success: true,
-        file: {
-          id: req.file.filename,
-          filename: req.file.filename,
+    // Return file information
+    res.json({
+      success: true,
+      file: {
+        id: req.file.filename,
+        filename: req.file.filename,
           originalName: req.file.originalname,
           size: req.file.size,
           mimetype: req.file.mimetype,
