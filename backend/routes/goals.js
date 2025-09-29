@@ -239,7 +239,7 @@ router.delete('/:id', auth, async (req, res) => {
 // Check in to a goal
 router.post('/:id/checkin', auth, async (req, res) => {
   try {
-    const { notes } = req.body;
+    const { notes, tzOffsetMinutes } = req.body;
     
     const goal = await UserGoal.findOne({
       _id: req.params.id,
@@ -254,7 +254,7 @@ router.post('/:id/checkin', auth, async (req, res) => {
       return res.status(400).json({ msg: 'Cannot check in to inactive goal' });
     }
     
-    const result = goal.addCheckIn(notes);
+    const result = goal.addCheckIn(notes, { tzOffsetMinutes });
     
     if (!result.success) {
       return res.status(400).json({ msg: result.message });

@@ -121,32 +121,74 @@ const Goals = () => {
     }
   ];
 
-  const handleCheckIn = async (goalId) => {
+  const handleCheckIn = async (goalId, notes = '') => {
     try {
       console.log('Starting check-in for goal:', goalId);
-      const response = await goalsAPI.checkIn(goalId, { notes: '' });
-      const updatedGoal = response.data;
-      
+
+      // Always include timezone offset in the request
+      const tzOffsetMinutes = new Date().getTimezoneOffset();
+
+      // Refetch latest goal to avoid stale state
+      const fresh = await goalsAPI.getGoal(goalId);
+      const freshGoal = fresh.data;
+
+      // Validate status
+      if (freshGoal.status !== 'active') {
+        enqueueSnackbar('Cannot check in to inactive goal', { variant: 'warning' });
+        return;
+      }
+
+      // Validate same-day check-in
+      const todayStr = new Date().toDateString();
+      const alreadyToday = (freshGoal.checkIns || []).some(
+        (ci) => new Date(ci.date).toDateString() === todayStr
+      );
+      if (alreadyToday) {
+        enqueueSnackbar('Already checked in today', { variant: 'info' });
+        return;
+      }
+
+      const doCheckIn = async () => {
+        const { data } = await goalsAPI.checkIn(goalId, {
+          notes: notes ?? '',
+          tzOffsetMinutes,
+        });
+        return data;
+      };
+
+      let updatedGoal;
+      try {
+        updatedGoal = await doCheckIn();
+      } catch (err) {
+        const msg = err?.response?.data?.msg || '';
+        // Fallback for older servers enforcing time window: relax to all-day and retry once
+        if (typeof msg === 'string' && msg.includes('only available')) {
+          try {
+            await goalsAPI.updateGoal(goalId, { schedule: { ...freshGoal.schedule, time: 'Throughout day' } });
+            updatedGoal = await doCheckIn();
+          } catch (retryErr) {
+            console.error('Retry after relaxing time failed:', retryErr);
+            throw retryErr;
+          }
+        } else {
+          throw err;
+        }
+      }
+
       console.log('Check-in response:', updatedGoal);
-      
-      // Check if goal is now 100% complete
+
       const progressPercentage = getProgressPercentage(updatedGoal);
-      console.log('Progress percentage after check-in:', progressPercentage);
-      
       if (progressPercentage >= 100) {
-        // Auto-complete the goal
-        console.log('Goal completed! Moving to completed status...');
         await handleCompleteGoal(goalId);
+        enqueueSnackbar(updatedGoal?.message || 'Goal completed and checked in! 🎉', { variant: 'success' });
       } else {
-        // Update the goal normally
-        setGoals(goals.map(goal => 
-          goal._id === goalId ? updatedGoal : goal
-        ));
-        enqueueSnackbar('Check-in successful!', { variant: 'success' });
+        setGoals((prev) => prev.map((g) => (g._id === goalId ? updatedGoal : g)));
+        enqueueSnackbar(updatedGoal?.message || 'Check-in successful!', { variant: 'success' });
       }
     } catch (err) {
       console.error('Check-in error:', err);
-      enqueueSnackbar(err.response?.data?.msg || 'Check-in failed', { variant: 'error' });
+      const msg = err?.response?.data?.msg || 'Check-in failed';
+      enqueueSnackbar(msg, { variant: 'error' });
     }
   };
 
@@ -158,6 +200,19 @@ const Goals = () => {
   const handleCreateGoal = () => {
     setEditingGoal(null);
     setShowGoalForm(true);
+  };
+
+  const handleResumeGoal = async (goalId) => {
+    try {
+      console.log('Resuming goal:', goalId);
+      const response = await goalsAPI.updateGoal(goalId, { status: 'active' });
+      const updatedGoal = response.data;
+      setGoals(goals.map(goal => goal._id === goalId ? updatedGoal : goal));
+      enqueueSnackbar('Goal resumed', { variant: 'success' });
+    } catch (err) {
+      console.error('Resume goal error:', err);
+      enqueueSnackbar(err.response?.data?.msg || 'Failed to resume goal', { variant: 'error' });
+    }
   };
 
   const handleGoalSaved = (savedGoal) => {
@@ -410,6 +465,7 @@ const Goals = () => {
                   key={goal._id}
                   goal={goal}
                   onCheckIn={handleCheckIn}
+                  onResume={handleResumeGoal}
                   onEdit={handleEditGoal}
                   onDelete={handleDeleteGoal}
                   onComplete={handleCompleteGoal}
@@ -457,7 +513,7 @@ const Goals = () => {
 };
 
 // Goal Card Component
-const GoalCard = ({ goal, onCheckIn, onEdit, onDelete, onComplete, getStatusColor, getProgressPercentage, getFrequencyText }) => {
+const GoalCard = ({ goal, onCheckIn, onResume, onEdit, onDelete, onComplete, getStatusColor, getProgressPercentage, getFrequencyText }) => {
   const progressPercentage = getProgressPercentage(goal);
   // Check if already checked in today - look at checkIns array instead of lastCheckIn
   const isCheckedInToday = goal.checkIns && goal.checkIns.some(checkIn => {
@@ -636,7 +692,7 @@ const GoalCard = ({ goal, onCheckIn, onEdit, onDelete, onComplete, getStatusColo
           </button>
         ) : goal.status === 'paused' ? (
           <button
-            onClick={() => onCheckIn(goal._id)}
+            onClick={() => onResume(goal._id)}
             className="flex-1 py-2 px-4 rounded-lg font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors"
           >
             Resume

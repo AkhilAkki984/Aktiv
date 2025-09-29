@@ -778,3 +778,4 @@ const StatusBadge = ({ status }) => {
 };
 
 export default Dashboard;
+

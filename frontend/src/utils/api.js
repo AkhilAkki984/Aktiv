@@ -107,7 +107,10 @@ export const goalsAPI = {
   createGoal: (data) => api.post("/goals", data),
   updateGoal: (id, data) => api.put(`/goals/${id}`, data),
   deleteGoal: (id) => api.delete(`/goals/${id}`),
-  checkIn: (id, data) => api.post(`/goals/${id}/checkin`, data),
+  checkIn: (id, data) => api.post(`/goals/${id}/checkin`, {
+    tzOffsetMinutes: new Date().getTimezoneOffset(),
+    ...data,
+  }),
   getCheckIns: (id) => api.get(`/goals/${id}/checkins`),
   getStats: () => api.get("/goals/stats/overview"),
 };

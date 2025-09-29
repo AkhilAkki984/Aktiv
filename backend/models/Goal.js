@@ -152,8 +152,12 @@ userGoalSchema.methods.parseTime = function(timeString) {
 };
 
 // Helper method to get time window for check-ins
-userGoalSchema.methods.getTimeWindow = function() {
-  const now = new Date();
+userGoalSchema.methods.getTimeWindow = function(tzOffsetMinutes = null) {
+  // Compute "now" and "today" using the client's local timezone if provided
+  // JS getTimezoneOffset() returns minutes to add to local to get UTC (U = L + offset) => L = U - offset
+  const now = tzOffsetMinutes === null
+    ? new Date()
+    : new Date(Date.now() - tzOffsetMinutes * 60 * 1000);
   const today = new Date(now);
   today.setHours(0, 0, 0, 0);
   
@@ -202,8 +206,12 @@ userGoalSchema.methods.getTimeWindow = function() {
 };
 
 // Method to add a check-in with time window validation
-userGoalSchema.methods.addCheckIn = function(notes = '') {
-  const now = new Date();
+userGoalSchema.methods.addCheckIn = function(notes = '', options = {}) {
+  // Align with client's local timezone if provided
+  const tzOffsetMinutes = options?.tzOffsetMinutes ?? null;
+  const now = tzOffsetMinutes === null
+    ? new Date()
+    : new Date(Date.now() - tzOffsetMinutes * 60 * 1000);
   const today = new Date(now);
   today.setHours(0, 0, 0, 0);
   
@@ -218,23 +226,9 @@ userGoalSchema.methods.addCheckIn = function(notes = '') {
     return { success: false, message: 'Already checked in today' };
   }
   
-  // Check if it's within the allowed time window
-  const timeWindow = this.getTimeWindow();
-  if (!timeWindow.canCheckIn) {
-    const nextTime = timeWindow.nextAvailableTime;
-    const nextTimeString = nextTime ? nextTime.toLocaleTimeString('en-US', { 
-      hour: '2-digit', 
-      minute: '2-digit',
-      hour12: true 
-    }) : 'tomorrow';
-    
-    return { 
-      success: false, 
-      message: `Check-in is only available from ${timeWindow.startTime} to ${timeWindow.endTime}`,
-      nextAvailableTime: nextTime,
-      nextAvailableTimeString: nextTimeString
-    };
-  }
+  // Previously: Enforced a time window based on schedule.time
+  // Change: Allow check-in any time of day to reduce friction.
+  // We still compute the window if needed for UI, but do not block here.
   
   // Add new check-in
   this.checkIns.push({

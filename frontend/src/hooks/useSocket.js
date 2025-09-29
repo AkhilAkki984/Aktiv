@@ -18,7 +18,7 @@ export const useSocket = () => {
     console.log('Initializing socket connection with token:', token ? 'Present' : 'Missing');
 
     // Initialize socket connection
-    const newSocket = io('http://localhost:5000', {
+    const newSocket = io('https://aktiv-backend.onrender.com', {
       auth: { token },
       transports: ['websocket', 'polling'],
       timeout: 20000,
