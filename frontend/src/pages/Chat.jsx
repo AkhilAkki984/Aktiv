@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useContext, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSnackbar } from "notistack";
-import { chatAPI, groupAPI, uploadAPI } from "../utils/api";
+import { chatAPI, groupAPI, uploadAPI, getMediaUrl } from "../utils/api";
 import { AuthContext } from "../context/AuthContext";
 import { useSocket } from "../hooks/useSocket";
 import ErrorBoundary from "../components/ErrorBoundary";
@@ -244,9 +244,14 @@ const Chat = () => {
 
       // Add media data if available
       if (uploadedMedia) {
+        // Ensure URL doesn't start with a slash for consistency
+        const mediaUrl = uploadedMedia.url.startsWith('/') 
+          ? uploadedMedia.url.substring(1) 
+          : uploadedMedia.url;
+          
         messageData.media = {
           type: uploadedMedia.mediaType,
-          url: uploadedMedia.url,
+          url: mediaUrl,
           filename: uploadedMedia.originalName,
           size: uploadedMedia.size
         };
@@ -800,15 +805,15 @@ const Chat = () => {
                             <div className="mb-2 -mx-1 -mt-1">
                               {message.media.type === 'image' && (
                                 <img
-                                  src={message.media.url}
+                                  src={getMediaUrl(message.media.url)}
                                   alt="Shared image"
                                   className="rounded-lg max-h-64 object-cover w-full cursor-pointer"
-                                  onClick={() => window.open(message.media.url, '_blank')}
+                                  onClick={() => window.open(getMediaUrl(message.media.url), '_blank')}
                                 />
                               )}
                               {message.media.type === 'video' && (
                                 <video
-                                  src={message.media.url}
+                                  src={getMediaUrl(message.media.url)}
                                   controls
                                   className="rounded-lg max-h-64 w-full"
                                   preload="metadata"
@@ -817,7 +822,7 @@ const Chat = () => {
                                 </video>
                               )}
                               {message.media.type === 'audio' && (
-                                <audio src={message.media.url} controls className="w-full" />
+                                <audio src={getMediaUrl(message.media.url)} controls className="w-full" />
                               )}
                               {message.media.type === 'document' && (
                                 <div className={`flex items-center gap-2 p-2 ${isOwnMessage ? 'bg-blue-300' : 'bg-gray-300'} rounded`}>
@@ -898,13 +903,13 @@ const Chat = () => {
                   </div>
                   {previewMedia.type === 'image' ? (
                     <img
-                      src={previewMedia.url}
+                      src={previewMedia.url.startsWith('blob:') ? previewMedia.url : getMediaUrl(previewMedia.url)}
                       alt="Preview"
                       className="mt-2 max-h-32 rounded-lg object-cover"
                     />
                   ) : (
                     <video
-                      src={previewMedia.url}
+                      src={previewMedia.url.startsWith('blob:') ? previewMedia.url : getMediaUrl(previewMedia.url)}
                       className="mt-2 max-h-32 rounded-lg"
                       controls
                     />

@@ -161,4 +161,25 @@ export const aiCoachAPI = {
   getSuggestions: () => api.get("/ai-coach/suggestions"),
 };
 
+// Helper function to get full media URL
+export const getMediaUrl = (path) => {
+  if (!path) return '';
+  
+  // If it's already a full URL, return as is
+  if (path.startsWith('http')) {
+    return path;
+  }
+  
+  // Remove leading slash if present
+  const cleanPath = path.startsWith('/') ? path.substring(1) : path;
+  
+  // In production, use the full backend URL
+  if (import.meta.env.PROD) {
+    return `https://aktiv-backend.onrender.com/${cleanPath}`;
+  }
+  
+  // In development, use relative URL
+  return `/${cleanPath}`;
+};
+
 export default api;
