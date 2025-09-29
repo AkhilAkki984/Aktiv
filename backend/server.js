@@ -32,7 +32,11 @@ const server = http.createServer(app);
 
 // Initialize app middleware
 app.use(cors({ 
-  origin: ["http://localhost:5173"], 
+  origin: [ "http://localhost:5173", // Development
+    "https://aktiv-frontend.onrender.com", // Your production frontend
+    "https://*.onrender.com" // All Render subdomains
+
+  ], 
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
@@ -61,7 +65,11 @@ app.use('/uploads', express.static('uploads'));
 // Initialize Socket.IO
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:5173"],
+    origin: [ "http://localhost:5173", // Development
+      "https://aktiv-frontend.onrender.com", // Your production frontend
+      "https://*.onrender.com" // All Render subdomains
+
+    ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
     allowedHeaders: ["Content-Type", "Authorization"]
