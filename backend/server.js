@@ -47,7 +47,7 @@ app.use((req, res, next) => {
 app.use(cors({ 
   origin: [ "http://localhost:5173", // Development
     "https://aktiv-frontend.onrender.com", // Your production frontend
-    "https://*.onrender.com" // All Render subdomains
+    
   ], 
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
