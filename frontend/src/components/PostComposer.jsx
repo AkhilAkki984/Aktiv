@@ -45,19 +45,34 @@ const PostComposer = ({ onPostCreated, socket }) => {
     const file = event.target.files[0];
     if (!file) return;
 
-    // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'video/mp4', 'video/mov', 'video/avi', 'video/webm'];
-    if (!allowedTypes.includes(file.type)) {
-      enqueueSnackbar('Only image and video files are allowed', { variant: 'error' });
+    console.log('Selected file:', file);
+    
+    // Get file extension
+    const fileName = file.name.toLowerCase();
+    const fileExt = fileName.split('.').pop();
+    
+    // Validate file type (case-insensitive)
+    const fileType = file.type.toLowerCase();
+    const allowedImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/heic', 'image/heif'];
+    const allowedVideoTypes = ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/webm'];
+    const allowedTypes = [...allowedImageTypes, ...allowedVideoTypes];
+    
+    // Check if file type is in allowed types or if it's a common mobile file type with missing/incorrect MIME type
+    const isAllowedType = allowedTypes.some(type => fileType.includes(type)) || 
+                         ['jpg', 'jpeg', 'png', 'gif', 'heic', 'heif', 'mp4', 'mov', 'avi', 'webm'].includes(fileExt);
+    
+    if (!isAllowedType) {
+      console.error('Invalid file type:', fileType);
+      enqueueSnackbar('Invalid file type. Only images (jpg, png, gif) and videos (mp4, mov) are allowed.', { 
+        variant: 'error',
+        autoHideDuration: 5000
+      });
       return;
     }
 
     // Validate file size (50MB for videos, 10MB for images)
-    const maxSize = file.type.startsWith('video/') ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
-    if (file.size > maxSize) {
-      enqueueSnackbar(`File too large. Max size: ${file.type.startsWith('video/') ? '50MB' : '10MB'}`, { variant: 'error' });
-      return;
-    }
+    const isVideo = fileType.startsWith('video/') || ['mp4', 'mov', 'avi', 'webm'].includes(fileExt);
+    const maxSize = isVideo ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
 
     setMediaFile(file);
     
@@ -235,8 +250,10 @@ const PostComposer = ({ onPostCreated, socket }) => {
               type="file"
               ref={fileInputRef}
               onChange={handleFileSelect}
-              accept="image/jpeg,image/jpg,image/png,image/gif,video/mp4,video/mov,video/avi,video/webm"
+              accept="image/*,video/*"
+              capture="environment"
               className="hidden"
+              multiple={false}
             />
           </div>
 
