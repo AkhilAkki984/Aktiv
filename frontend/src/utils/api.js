@@ -1,8 +1,14 @@
 // frontend/src/utils/api.js
 import axios from "axios";
 
+// Use relative URL in development, absolute in production
+const baseURL = import.meta.env.DEV 
+  ? '/api' 
+  : 'https://aktiv-backend.onrender.com/api';
+
 const api = axios.create({
-  baseURL: "https://aktiv-backend.onrender.com/api",
+  baseURL,
+  timeout: 30000, // 30 second timeout
 });
 
 api.interceptors.request.use((config) => {

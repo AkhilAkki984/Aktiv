@@ -324,17 +324,36 @@ const Chat = () => {
     const file = event.target.files[0];
     if (!file) return;
 
-    // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'video/mp4', 'video/mov', 'video/avi', 'video/webm'];
-    if (!allowedTypes.includes(file.type)) {
-      enqueueSnackbar('Invalid file type. Only images (jpg, png, gif) and videos (mp4, mov, avi, webm) are allowed.', { variant: 'error' });
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+
+    // Validate file type (case-insensitive)
+    const fileType = file.type.toLowerCase();
+    const allowedTypes = [
+      'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 
+      'image/heic', 'image/heif', // For iOS photos
+      'video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/webm'
+    ];
+    
+    if (!allowedTypes.some(type => fileType.includes(type))) {
+      enqueueSnackbar('Invalid file type. Only images (jpg, png, gif) and videos (mp4, mov, avi, webm) are allowed.', { 
+        variant: 'error',
+        autoHideDuration: 5000
+      });
       return;
     }
 
     // Validate file size (50MB for videos, 10MB for images)
-    const maxSize = file.type.startsWith('video/') ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
+    const isVideo = fileType.startsWith('video/');
+    const maxSize = isVideo ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
+    
     if (file.size > maxSize) {
-      enqueueSnackbar(`File too large. Max size: ${file.type.startsWith('video/') ? '50MB' : '10MB'}`, { variant: 'error' });
+      enqueueSnackbar(
+        `File too large. Maximum size: ${isVideo ? '50MB for videos' : '10MB for images'}`, 
+        { variant: 'error', autoHideDuration: 5000 }
+      );
       return;
     }
 
@@ -349,11 +368,27 @@ const Chat = () => {
         type: file.type.startsWith('image/') ? 'image' : 'video'
       });
 
-      // Upload file
+      // Upload file with progress
       const formData = new FormData();
       formData.append('media', file);
       
-      const uploadResponse = await uploadAPI.uploadMedia(formData);
+      // Add content type header for better mobile support
+      const config = {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        onUploadProgress: (progressEvent) => {
+          const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          console.log(`Upload progress: ${progress}%`);
+          // You can add a progress bar here if needed
+        }
+      };
+      
+      const uploadResponse = await uploadAPI.uploadMedia(formData, config);
+      
+      if (!uploadResponse.data.success) {
+        throw new Error(uploadResponse.data.error || 'Upload failed');
+      }
       
       // Send message with media
       await sendMessage("", null, uploadResponse.data.file);
@@ -364,14 +399,30 @@ const Chat = () => {
       
     } catch (err) {
       console.error('Error uploading media:', err);
-      enqueueSnackbar('Failed to upload media', { variant: 'error' });
+      
+      let errorMessage = 'Failed to upload media';
+      if (err.response) {
+        // Server responded with an error
+        errorMessage = err.response.data?.error || errorMessage;
+      } else if (err.request) {
+        // Request was made but no response received
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      enqueueSnackbar(errorMessage, { 
+        variant: 'error',
+        autoHideDuration: 5000,
+        anchorOrigin: {
+          vertical: 'bottom',
+          horizontal: 'center',
+        }
+      });
+      
       setPreviewMedia(null);
     } finally {
       setUploadingMedia(false);
-      // Reset file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
     }
   };
 

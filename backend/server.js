@@ -44,15 +44,44 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(cors({ 
-  origin: [ "http://localhost:5173", // Development
-    "https://aktiv-frontend.onrender.com", // Your production frontend
+// CORS configuration
+const allowedOrigins = [
+  'http://localhost:5173',
+  'https://aktiv-frontend.onrender.com',
+  'https://aktiv-frontend-*.onrender.com',
+  'https://*.onrender.com'
+];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
     
-  ], 
+    if (allowedOrigins.some(allowedOrigin => 
+      origin === allowedOrigin || 
+      origin.startsWith(allowedOrigin.replace('*', ''))
+    )) {
+      return callback(null, true);
+    }
+    
+    const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+    return callback(new Error(msg), false);
+  },
   credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"]
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: [
+    "Content-Type", 
+    "Authorization", 
+    "X-Requested-With",
+    "Accept",
+    "Origin"
+  ],
+  exposedHeaders: ["Content-Disposition"],
+  maxAge: 86400 // 24 hours
 }));
+
+// Handle preflight requests
+app.options('*', cors());
 
 // Root route
 app.get('/', (req, res) => {
@@ -76,8 +105,37 @@ app.use("/api/goals", goalsRoutes);
 app.use("/api/posts", postsRoutes);
 app.use("/api/ai-coach", aiCoachRoutes);
 
-// Serve uploaded files statically
-app.use('/uploads', express.static('uploads'));
+// Serve uploaded files statically with proper error handling
+const uploadsPath = path.join(process.cwd(), 'uploads');
+if (!fs.existsSync(uploadsPath)) {
+  fs.mkdirSync(uploadsPath, { recursive: true });
+  console.log('Created uploads directory at:', uploadsPath);
+}
+
+// Serve static files with cache control
+app.use('/uploads', express.static(uploadsPath, {
+  etag: true,
+  lastModified: true,
+  maxAge: '1y',
+  setHeaders: (res, path) => {
+    // Set appropriate cache headers for different file types
+    if (/\.(jpg|jpeg|png|gif|webp|mp4|mov|avi|webm)$/i.test(path)) {
+      res.setHeader('Cache-Control', 'public, max-age=31536000'); // 1 year
+    }
+  }
+}));
+
+// Log available files in uploads directory (for debugging)
+console.log('Serving static files from:', uploadsPath);
+try {
+  const files = fs.readdirSync(uploadsPath);
+  console.log(`Found ${files.length} files in uploads directory`);
+  if (files.length > 0) {
+    console.log('First few files:', files.slice(0, 5));
+  }
+} catch (err) {
+  console.error('Error reading uploads directory:', err);
+}
 
 // Initialize Socket.IO
 const io = new Server(server, {
