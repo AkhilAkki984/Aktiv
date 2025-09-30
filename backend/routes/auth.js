@@ -18,9 +18,21 @@ router.post('/register', async (req, res) => {
     
     user = new User(userData);
     await user.save();
+    
+    // Get full user data (excluding password)
+    const fullUser = await User.findById(user._id).select('-password');
+    
     const payload = { user: { id: user.id } };
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
-    res.json({ token });
+    
+    console.log('Registration successful for user:', fullUser.email);
+    
+    // Return token and complete user data
+    res.json({ 
+      success: true,
+      token,
+      user: fullUser
+    });
   } catch (err) {
     console.error('Registration error:', err);
     res.status(500).json({ msg: 'Server error' });
@@ -94,23 +106,24 @@ router.post('/login', async (req, res) => {
     user.isOnline = true;
     await user.save();
 
-    // Prepare user data for response
-    const userResponse = {
-      id: user._id,
-      email: user.email,
-      username: user.username,
-      onboarded: user.onboarded || false,
-      // Add any other user fields you need on the frontend
-    };
-
-    console.log('Login successful for user:', userResponse.email);
+    // Get fresh user data with all fields (excluding password)
+    const fullUser = await User.findById(user._id).select('-password');
     
-    // Return success response with user data
+    console.log('Login successful for user:', fullUser.email);
+    console.log('User profile data:', {
+      avatar: fullUser.avatar,
+      bio: fullUser.bio,
+      onboarded: fullUser.onboarded,
+      hasPreferences: !!fullUser.preferences?.length,
+      hasGoals: !!fullUser.goals?.length
+    });
+    
+    // Return success response with complete user data
     res.status(200).json({ 
       success: true,
       message: 'Login successful',
       token: token,
-      user: userResponse
+      user: fullUser
     });
     
   } catch (err) {

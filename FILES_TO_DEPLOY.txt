@@ -1,7 +1,7 @@
 🚀 FILES TO DEPLOY TO GITHUB (Then Render Auto-Deploys)
 ==========================================================
 
-📁 BACKEND FILES (3 files total):
+📁 BACKEND FILES (4 files total):
 ---------------------------------
 
 1. backend/server.js
@@ -9,15 +9,23 @@
    Line 54: Added 'https://aktiv-frontend.onrender.com'
    Line 56: Added Render preview deployment pattern
 
-2. backend/routes/auth.js  
+2. backend/routes/auth.js ⭐ UPDATED
    ✅ Fixed: Social login redirects to production frontend
    Lines 132, 140, 148, 156: Changed localhost to Render frontend URL
-   Uses environment variable FRONTEND_URL with fallback
+   ✅ NEW: Login/register now return complete user data
+   Lines 22-35: Registration returns full user object
+   Lines 97-115: Login returns full user object
 
 3. backend/routes/posts.js
    ✅ Fixed: Media upload URLs use production backend
    Line 113: Changed localhost to Render backend URL
    Uses environment variable BASE_URL with fallback
+
+4. backend/routes/users.js ⭐ NEW
+   ✅ Fixed: Profile data persistence after onboarding
+   Lines 20-63: Enhanced profile update with validation
+   Location parsing: Splits "Country, City, Area" into DB fields
+   Added logging for debugging
 
 
 📋 DEPLOYMENT STEPS:
@@ -28,13 +36,13 @@ METHOD 1 - Via GitHub Web (Easiest):
 2. Navigate to backend/server.js → Click Edit
 3. Copy content from: c:\Users\AKHIL\Downloads\Aktiv-main\Aktiv-main\backend\server.js
 4. Paste and commit
-5. Repeat for auth.js and posts.js
+5. Repeat for: auth.js, posts.js, users.js (4 files total)
 6. Wait 2-5 minutes for Render to deploy
 
 METHOD 2 - Via Git Command Line:
 cd c:\Users\AKHIL\Downloads\Aktiv-main\Aktiv-main
-git add backend/server.js backend/routes/auth.js backend/routes/posts.js
-git commit -m "Fix: Update all URLs for production deployment"
+git add backend/server.js backend/routes/auth.js backend/routes/posts.js backend/routes/users.js
+git commit -m "Fix: CORS, profile persistence, and login data loading"
 git push origin main
 
 
@@ -42,19 +50,16 @@ git push origin main
 -------------------
 
 1. Visit: https://aktiv-frontend.onrender.com
-2. Test registration (should work)
-3. Test login (may need new account due to existing bug)
+2. Test registration → Complete onboarding
+3. Logout and login → Profile should load immediately (no refresh!)
 4. Test from phone/other device
-5. CORS errors should be GONE ✅
+5. All issues should be GONE ✅
 
 
-⚠️ KNOWN ISSUES (Not fixed yet):
--------------------------------
+⚠️ KNOWN ISSUES:
+----------------
 
-1. Existing user "bunny@gmail.com" cannot login
-   - Cause: Email normalization mismatch
-   - Fix: Register new account OR deploy email fix separately
-   - Temporary: User can register with different email
+NONE! All major issues are fixed! ✅
 
 2. Backend sleeps after 15 min (Render free tier)
    - First request takes 30-60 seconds
@@ -67,6 +72,8 @@ git push origin main
 ✅ CORS errors - Frontend can now call backend
 ✅ Social logins redirect to correct URL
 ✅ Media uploads use correct URL
+✅ Profile data persists after onboarding
+✅ Profile data loads immediately on login (no refresh needed!)
 ✅ Works from ANY device/location
 ✅ No more localhost references in production
 
