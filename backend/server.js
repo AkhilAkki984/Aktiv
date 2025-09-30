@@ -26,7 +26,6 @@ import dashboardRoutes from "./routes/dashboard.js";
 import goalsRoutes from "./routes/goals.js";
 import postsRoutes from "./routes/posts.js";
 import aiCoachRoutes from "./routes/aiCoach.js";
-import resetPasswordRoutes from "./routes/reset-password.js";
 
 // Ensure uploads directory exists
 const uploadsPath = path.join(process.cwd(), 'uploads');
@@ -151,7 +150,6 @@ app.use("/api/goals", goalsRoutes);
 app.use("/api/posts", postsRoutes);
 app.use("/api/ai-coach", aiCoachRoutes);
 app.use("/api/upload", uploadRoutes);
-app.use("/api", resetPasswordRoutes); // Password reset route
 
 // Initialize Socket.IO
 const io = new Server(server, {
