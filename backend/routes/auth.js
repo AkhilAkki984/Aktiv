@@ -129,28 +129,32 @@ router.post('/login', async (req, res) => {
 router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 router.get('/google/callback', passport.authenticate('google', { session: false }), (req, res) => {
   const token = jwt.sign({ user: { id: req.user.id } }, process.env.JWT_SECRET, { expiresIn: '1h' });
-  res.redirect(`http://localhost:5173/login-signup?token=${token}`);
+  const frontendUrl = process.env.FRONTEND_URL || 'https://aktiv-frontend.onrender.com';
+  res.redirect(`${frontendUrl}/login-signup?token=${token}`);
 });
 
 // Twitter
 router.get('/twitter', passport.authenticate('twitter'));
 router.get('/twitter/callback', passport.authenticate('twitter', { session: false }), (req, res) => {
   const token = jwt.sign({ user: { id: req.user.id } }, process.env.JWT_SECRET, { expiresIn: '1h' });
-  res.redirect(`http://localhost:5173/login-signup?token=${token}`);
+  const frontendUrl = process.env.FRONTEND_URL || 'https://aktiv-frontend.onrender.com';
+  res.redirect(`${frontendUrl}/login-signup?token=${token}`);
 });
 
 // LinkedIn
 router.get('/linkedin', passport.authenticate('linkedin'));
 router.get('/linkedin/callback', passport.authenticate('linkedin', { session: false }), (req, res) => {
   const token = jwt.sign({ user: { id: req.user.id } }, process.env.JWT_SECRET, { expiresIn: '1h' });
-  res.redirect(`http://localhost:5173/login-signup?token=${token}`);
+  const frontendUrl = process.env.FRONTEND_URL || 'https://aktiv-frontend.onrender.com';
+  res.redirect(`${frontendUrl}/login-signup?token=${token}`);
 });
 
 // Facebook
 router.get('/facebook', passport.authenticate('facebook', { scope: ['email'] }));
 router.get('/facebook/callback', passport.authenticate('facebook', { session: false }), (req, res) => {
   const token = jwt.sign({ user: { id: req.user.id } }, process.env.JWT_SECRET, { expiresIn: '1h' });
-  res.redirect(`http://localhost:5173/login-signup?token=${token}`);
+  const frontendUrl = process.env.FRONTEND_URL || 'https://aktiv-frontend.onrender.com';
+  res.redirect(`${frontendUrl}/login-signup?token=${token}`);
 });
 
 

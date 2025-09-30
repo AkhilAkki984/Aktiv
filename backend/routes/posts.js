@@ -110,7 +110,7 @@ router.post('/', auth, upload.single('media'), async (req, res) => {
           fs.writeFileSync(filepath, req.file.buffer);
           
           // Create URL for local file
-          const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
+          const baseUrl = process.env.BASE_URL || 'https://aktiv-backend.onrender.com';
           mediaUrl = `${baseUrl}/uploads/feed_media/${filename}`;
           mediaType = req.file.mimetype.startsWith('video/') ? 'video' : 'image';
           

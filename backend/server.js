@@ -51,7 +51,9 @@ const allowedOrigins = [
   'https://aktiv-frontend-git-main-akhilreddy-2004s-projects.vercel.app',
   'https://aktiv-frontend-akhilreddy-2004s-projects.vercel.app',
   'https://aktiv-backend.onrender.com',
-  /^\.*\.vercel\.app$/ // Allow all Vercel preview deployments
+  'https://aktiv-frontend.onrender.com', // Render frontend
+  /^\.*\.vercel\.app$/, // Allow all Vercel preview deployments
+  /^https:\/\/aktiv-frontend.*\.onrender\.com$/ // Allow all Render preview deployments
 ];
 
 const corsOptions = {

@@ -1,0 +1,85 @@
+🚀 FILES TO DEPLOY TO GITHUB (Then Render Auto-Deploys)
+==========================================================
+
+📁 BACKEND FILES (3 files total):
+---------------------------------
+
+1. backend/server.js
+   ✅ Fixed: Added Render frontend URL to CORS
+   Line 54: Added 'https://aktiv-frontend.onrender.com'
+   Line 56: Added Render preview deployment pattern
+
+2. backend/routes/auth.js  
+   ✅ Fixed: Social login redirects to production frontend
+   Lines 132, 140, 148, 156: Changed localhost to Render frontend URL
+   Uses environment variable FRONTEND_URL with fallback
+
+3. backend/routes/posts.js
+   ✅ Fixed: Media upload URLs use production backend
+   Line 113: Changed localhost to Render backend URL
+   Uses environment variable BASE_URL with fallback
+
+
+📋 DEPLOYMENT STEPS:
+-------------------
+
+METHOD 1 - Via GitHub Web (Easiest):
+1. Go to your GitHub repository
+2. Navigate to backend/server.js → Click Edit
+3. Copy content from: c:\Users\AKHIL\Downloads\Aktiv-main\Aktiv-main\backend\server.js
+4. Paste and commit
+5. Repeat for auth.js and posts.js
+6. Wait 2-5 minutes for Render to deploy
+
+METHOD 2 - Via Git Command Line:
+cd c:\Users\AKHIL\Downloads\Aktiv-main\Aktiv-main
+git add backend/server.js backend/routes/auth.js backend/routes/posts.js
+git commit -m "Fix: Update all URLs for production deployment"
+git push origin main
+
+
+🎯 AFTER DEPLOYMENT:
+-------------------
+
+1. Visit: https://aktiv-frontend.onrender.com
+2. Test registration (should work)
+3. Test login (may need new account due to existing bug)
+4. Test from phone/other device
+5. CORS errors should be GONE ✅
+
+
+⚠️ KNOWN ISSUES (Not fixed yet):
+-------------------------------
+
+1. Existing user "bunny@gmail.com" cannot login
+   - Cause: Email normalization mismatch
+   - Fix: Register new account OR deploy email fix separately
+   - Temporary: User can register with different email
+
+2. Backend sleeps after 15 min (Render free tier)
+   - First request takes 30-60 seconds
+   - Normal behavior for free tier
+
+
+✅ WHAT'S FIXED:
+---------------
+
+✅ CORS errors - Frontend can now call backend
+✅ Social logins redirect to correct URL
+✅ Media uploads use correct URL
+✅ Works from ANY device/location
+✅ No more localhost references in production
+
+
+🔗 YOUR URLs:
+------------
+
+Frontend: https://aktiv-frontend.onrender.com
+Backend:  https://aktiv-backend.onrender.com
+
+
+📖 MORE INFO:
+------------
+
+See: PRODUCTION_DEPLOYMENT.md
+See: DEPLOY_TO_RENDER.md
