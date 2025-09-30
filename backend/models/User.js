@@ -55,14 +55,44 @@ const userSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now }
 });
 
+// Hash password before saving
 userSchema.pre('save', async function (next) {
-  if (!this.isModified('password') || !this.password) return next();
-  this.password = await bcrypt.hash(this.password, 10);
-  next();
+  try {
+    // Only hash the password if it has been modified (or is new)
+    if (!this.isModified('password') || !this.password) {
+      return next();
+    }
+    
+    // Generate a salt and hash the password
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+    next();
+  } catch (error) {
+    console.error('Error hashing password:', error);
+    next(error);
+  }
 });
 
-userSchema.methods.comparePassword = async function (password) {
-  return bcrypt.compare(password, this.password);
+// Method to compare passwords
+userSchema.methods.comparePassword = async function (candidatePassword) {
+  try {
+    // If password is not set, return false
+    if (!this.password) {
+      console.log('No password set for user');
+      return false;
+    }
+    
+    // Compare the provided password with the stored hash
+    const isMatch = await bcrypt.compare(candidatePassword, this.password);
+    
+    // Log the result for debugging
+    console.log('Password comparison result:', isMatch);
+    
+    return isMatch;
+  } catch (error) {
+    console.error('Error comparing passwords:', error);
+    return false;
+  }
 };
 
 // Helper method to get full name

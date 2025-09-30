@@ -36,18 +36,113 @@ const LoginSignup = () => {
     }
   }, [location, navigate, login, enqueueSnackbar, isLogin]);
 
-  const onSubmit = async (data) => {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const onSubmit = async (formData) => {
+    setError('');
+    setIsLoading(true);
+    
     try {
-      const res = await authAPI[isLogin ? "login" : "register"](data);
-      localStorage.setItem("token", res.data.token);
-      const profile = await authAPI.getProfile();
-      login(profile.data);
-      navigate(profile.data.onboarded ? "/dashboard" : "/onboarding");
-      reset();
+      console.log('Form data received:', formData);
+      
+      // Prepare the request data with correct field names
+      const requestData = isLogin
+        ? {
+            email: formData.email?.trim(),
+            password: formData.password
+          }
+        : {
+            username: formData.username?.trim(),
+            email: formData.email?.trim(),
+            password: formData.password,
+            firstName: formData.firstName?.trim(),
+            lastName: formData.lastName?.trim()
+          };
+      
+      console.log('Sending request to server with data:', requestData);
+      
+      // Make login/register request
+      const res = await authAPI[isLogin ? 'login' : 'register'](requestData);
+      console.log('Server response:', res);
+      
+      if (!res) {
+        throw new Error('No response received from server');
+      }
+      
+      if (res.data) {
+        console.log('Response data:', res.data);
+        
+        // Check for token in the response
+        if (res.data.token) {
+          // Store the token
+          localStorage.setItem('token', res.data.token);
+          
+          // If user data is included in the response, use it
+          if (res.data.user) {
+            console.log('User data from response:', res.data.user);
+            login(res.data.user);
+            navigate(res.data.user.onboarded ? '/dashboard' : '/onboarding');
+            reset();
+            enqueueSnackbar(isLogin ? 'Login successful!' : 'Registration successful!', { variant: 'success' });
+            return;
+          } else {
+            // Fallback to fetching profile if not included in response
+            console.log('No user data in response, fetching profile...');
+            try {
+              const profile = await authAPI.getProfile();
+              console.log('Fetched profile:', profile.data);
+              login(profile.data);
+              navigate(profile.data.onboarded ? '/dashboard' : '/onboarding');
+              reset();
+              enqueueSnackbar(isLogin ? 'Login successful!' : 'Registration successful!', { variant: 'success' });
+              return;
+            } catch (profileErr) {
+              console.error('Error fetching profile:', profileErr);
+              throw new Error('Login successful but failed to fetch user profile');
+            }
+          }
+        }
+      }
+      
+      // If we get here, the response didn't contain what we expected
+      console.error('Unexpected response format:', res);
+      throw new Error(res.data?.msg || 'Invalid response format from server');
     } catch (err) {
-      enqueueSnackbar(err.response?.data?.msg || (isLogin ? "Login failed" : "Registration failed"), {
-        variant: "error",
-      });
+      console.error('Authentication error:', err);
+      
+      // Extract the most relevant error message
+      let errorMessage = 'An error occurred';
+      
+      if (err.response) {
+        // Server responded with an error status code
+        const { data, status } = err.response;
+        console.error(`Server error ${status}:`, data);
+        
+        if (status === 400) {
+          errorMessage = data.msg || 'Invalid request data';
+        } else if (status === 401) {
+          errorMessage = data.msg || 'Invalid credentials';
+        } else if (status === 500) {
+          errorMessage = 'Server error. Please try again later.';
+        } else {
+          errorMessage = data.msg || `Error: ${status} - ${data.message || 'Unknown error'}`;
+        }
+      } else if (err.request) {
+        // Request was made but no response received
+        console.error('No response received:', err.request);
+        errorMessage = 'No response from server. Please check your connection.';
+      } else {
+        // Something else went wrong
+        console.error('Request setup error:', err.message);
+        errorMessage = err.message || 'Failed to process request';
+      }
+      
+      setError(errorMessage);
+      enqueueSnackbar(errorMessage, { variant: 'error' });
+      enqueueSnackbar(errorMessage, { variant: "error" });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -103,10 +198,25 @@ const LoginSignup = () => {
             )}
             <button
               type="submit"
-              className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-300"
+              disabled={isLoading}
+              className={`w-full py-2 ${isLoading ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded-lg transition-colors duration-300 flex items-center justify-center`}
             >
-              {isLogin ? "Login" : "Register"}
+              {isLoading ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  {isLoading ? 'Processing...' : (isLogin ? 'Login' : 'Register')}
+                </>
+              ) : isLogin ? 'Login' : 'Register'}
             </button>
+            
+            {error && (
+              <div className="mt-2 text-red-600 text-sm text-center">
+                {error}
+              </div>
+            )}
           </form>
           <div className="text-center">
             <p className="text-gray-600 mb-3">Or {isLogin ? "login" : "register"} with</p>

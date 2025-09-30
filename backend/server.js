@@ -26,6 +26,7 @@ import dashboardRoutes from "./routes/dashboard.js";
 import goalsRoutes from "./routes/goals.js";
 import postsRoutes from "./routes/posts.js";
 import aiCoachRoutes from "./routes/aiCoach.js";
+import resetPasswordRoutes from "./routes/reset-password.js";
 
 // Ensure uploads directory exists
 const uploadsPath = path.join(process.cwd(), 'uploads');
@@ -43,31 +44,43 @@ app.use(express.json());
 app.use(passport.initialize());
 
 // CORS configuration
-const corsOptions = {
-  origin: (origin, callback) => {
-    const allowedOrigins = [
-      'http://localhost:5173',
-      'http://localhost:3000',
-      'https://aktiv-frontend.onrender.com',
-      /^https:\/\/aktiv-frontend-.*\.onrender\.com$/,
-      /^https:\/\/.*\.onrender\.com$/
-    ];
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'https://aktiv-fitness.vercel.app',
+  'https://aktiv-frontend.vercel.app',
+  'https://aktiv-frontend-git-main-akhilreddy-2004s-projects.vercel.app',
+  'https://aktiv-frontend-akhilreddy-2004s-projects.vercel.app',
+  'https://aktiv-backend.onrender.com',
+  /^\.*\.vercel\.app$/ // Allow all Vercel preview deployments
+];
 
+const corsOptions = {
+  origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
     
-    if (allowedOrigins.some(pattern => {
-      if (typeof pattern === 'string') {
-        return origin === pattern;
-      } else if (pattern instanceof RegExp) {
-        return pattern.test(origin);
-      }
-      return false;
-    })) {
+    // For development, allow all origins
+    if (process.env.NODE_ENV === 'development') {
       return callback(null, true);
     }
     
-    return callback(new Error('Not allowed by CORS'));
+    // Check if the origin is allowed
+    const isAllowed = allowedOrigins.some(allowedOrigin => {
+      if (typeof allowedOrigin === 'string') {
+        return origin === allowedOrigin || origin.startsWith(allowedOrigin);
+      } else if (allowedOrigin instanceof RegExp) {
+        return allowedOrigin.test(origin);
+      }
+      return false;
+    });
+    
+    if (isAllowed) {
+      return callback(null, true);
+    }
+    
+    console.log('Blocked by CORS:', origin);
+    callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
@@ -138,6 +151,7 @@ app.use("/api/goals", goalsRoutes);
 app.use("/api/posts", postsRoutes);
 app.use("/api/ai-coach", aiCoachRoutes);
 app.use("/api/upload", uploadRoutes);
+app.use("/api", resetPasswordRoutes); // Password reset route
 
 // Initialize Socket.IO
 const io = new Server(server, {
