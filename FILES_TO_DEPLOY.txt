@@ -2,6 +2,7 @@
 ==========================================================
 
 📁 BACKEND FILES (5 files total):
+📁 FRONTEND FILES (1 file):
 ---------------------------------
 
 1. backend/server.js
@@ -32,6 +33,14 @@
    Line 108-109: Uses full URL (https://aktiv-backend.onrender.com/uploads/...)
    Fixes broken images when accessing from mobile
 
+📁 FRONTEND FILES (1 file):
+---------------------------------
+
+6. frontend/src/utils/api.js ⭐ CRITICAL FIX
+   ✅ Fixed: FormData uploads (images in posts/chat)
+   Lines 26-30: Detects FormData and lets browser set Content-Type
+   Fixes "media: {}" issue - backend now receives files correctly
+
 
 📋 DEPLOYMENT STEPS:
 -------------------
@@ -41,13 +50,14 @@ METHOD 1 - Via GitHub Web (Easiest):
 2. Navigate to backend/server.js → Click Edit
 3. Copy content from: c:\Users\AKHIL\Downloads\Aktiv-main\Aktiv-main\backend\server.js
 4. Paste and commit
-5. Repeat for: auth.js, posts.js, users.js, upload.js (5 files total)
-6. Wait 2-5 minutes for Render to deploy
+5. Repeat for: auth.js, posts.js, users.js, upload.js
+6. For FRONTEND: Navigate to frontend/src/utils/api.js → Edit → Commit
+7. Wait 2-5 minutes for Render to deploy (6 files total)
 
 METHOD 2 - Via Git Command Line:
 cd c:\Users\AKHIL\Downloads\Aktiv-main\Aktiv-main
-git add backend/server.js backend/routes/auth.js backend/routes/posts.js backend/routes/users.js backend/routes/upload.js
-git commit -m "Fix: CORS, profile persistence, login data, and chat image URLs"
+git add backend/ frontend/src/utils/api.js
+git commit -m "Fix: CORS, profile persistence, login data, image uploads, and FormData handling"
 git push origin main
 
 
