@@ -4,6 +4,7 @@ import path from "path";
 import fs from "fs";
 import dotenv from "dotenv";
 import auth from "../middleware/auth.js";
+import { cloudinary, cloudinaryConfigured } from '../config/cloudinary.js';
 
 dotenv.config();
 const router = express.Router();
@@ -26,17 +27,20 @@ ensureDirectoryExists(uploadsDir);
 console.log('Upload directory:', uploadsDir);
 
 // Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    // Sanitize filename
-    const safeName = file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-    cb(null, `chat_media_${uniqueSuffix}_${safeName}`);
-  }
-});
+// Use memory storage for Cloudinary, disk storage as fallback
+const storage = cloudinaryConfigured 
+  ? multer.memoryStorage() 
+  : multer.diskStorage({
+      destination: (req, file, cb) => {
+        cb(null, uploadsDir);
+      },
+      filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        // Sanitize filename
+        const safeName = file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+        cb(null, `chat_media_${uniqueSuffix}_${safeName}`);
+      }
+    });
 
 const upload = multer({ 
   storage,
@@ -104,28 +108,68 @@ router.post("/media", auth, async (req, res, next) => {
       const fileType = req.file.mimetype.split('/')[0];
       const mediaType = fileType === 'image' ? 'image' : 'video';
       
-      // ✅ FIXED: Generate absolute URL for static file serving
-      const baseUrl = process.env.BASE_URL || 'https://aktiv-backend.onrender.com';
-      const fileUrl = `${baseUrl}/uploads/chat_media/${req.file.filename}`;
+      let fileUrl;
+      let filename;
+      
+      // ✅ Use Cloudinary if configured, otherwise fall back to local storage
+      if (cloudinaryConfigured) {
+        console.log('📤 Uploading to Cloudinary...');
+        try {
+          // Upload to Cloudinary
+          const result = await new Promise((resolve, reject) => {
+            const uploadStream = cloudinary.uploader.upload_stream(
+              {
+                resource_type: mediaType === 'video' ? 'video' : 'image',
+                folder: 'chat-media',
+                public_id: `chat_media_${Date.now()}_${Math.round(Math.random() * 1E9)}`
+              },
+              (error, result) => {
+                if (error) reject(error);
+                else resolve(result);
+              }
+            );
+            uploadStream.end(req.file.buffer);
+          });
+          
+          fileUrl = result.secure_url;
+          filename = result.public_id;
+          
+          console.log('✅ Cloudinary upload successful:', {
+            filename: filename,
+            url: fileUrl,
+            size: req.file.size
+          });
+        } catch (error) {
+          console.error('❌ Cloudinary upload failed:', error);
+          return res.status(500).json({ 
+            success: false, 
+            error: 'Failed to upload to cloud storage' 
+          });
+        }
+      } else {
+        // Fallback to local storage (will be lost on Render restart)
+        console.log('⚠️ Using local storage (ephemeral on Render)');
+        const baseUrl = process.env.BASE_URL || 'https://aktiv-backend.onrender.com';
+        filename = req.file.filename;
+        fileUrl = `${baseUrl}/uploads/chat_media/${filename}`;
+      }
       
       console.log('File uploaded successfully:', {
-        filename: req.file.filename,
+        filename: filename,
         size: req.file.size,
-        url: fileUrl,
-        baseUrl: baseUrl
+        url: fileUrl
       });
       
       // Return file information
       res.json({
         success: true,
         file: {
-          id: req.file.filename,
-          filename: req.file.filename,
+          id: filename,
+          filename: filename,
           originalName: req.file.originalname,
           size: req.file.size,
           mimetype: req.file.mimetype,
           mediaType: mediaType,
-          // ✅ FIXED: Return absolute URL
           url: fileUrl,
           uploadedAt: new Date()
         }
