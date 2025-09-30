@@ -44,16 +44,24 @@ router.post('/', auth, upload.single('media'), async (req, res) => {
     const { text, category } = req.body;
     const userId = req.user.id;
     
-    console.log('Creating post with data:', {
+    console.log('📝 Post creation request received');
+    console.log('req.body:', req.body);
+    console.log('req.file:', req.file ? { name: req.file.originalname, type: req.file.mimetype } : 'none');
+    console.log('Parsed data:', {
       text: text || '(empty)',
       category: category || '(missing)',
+      categoryType: typeof category,
       hasFile: !!req.file,
       fileType: req.file?.mimetype || 'none',
       userId: userId
     });
 
-    if (!category) {
-      return res.status(400).json({ msg: 'Category is required' });
+    if (!category || category === 'undefined' || category.trim() === '') {
+      console.error('❌ Category validation failed:', { category, type: typeof category });
+      return res.status(400).json({ 
+        msg: 'Category is required',
+        received: { text: !!text, category: category, hasFile: !!req.file }
+      });
     }
     
     // Allow posts with either text content or media

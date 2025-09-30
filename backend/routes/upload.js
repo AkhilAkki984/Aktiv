@@ -104,13 +104,15 @@ router.post("/media", auth, async (req, res, next) => {
       const fileType = req.file.mimetype.split('/')[0];
       const mediaType = fileType === 'image' ? 'image' : 'video';
       
-      // ✅ FIXED: Generate correct URL for static file serving
-      const fileUrl = `/uploads/chat_media/${req.file.filename}`;
+      // ✅ FIXED: Generate absolute URL for static file serving
+      const baseUrl = process.env.BASE_URL || 'https://aktiv-backend.onrender.com';
+      const fileUrl = `${baseUrl}/uploads/chat_media/${req.file.filename}`;
       
       console.log('File uploaded successfully:', {
         filename: req.file.filename,
         size: req.file.size,
-        url: fileUrl
+        url: fileUrl,
+        baseUrl: baseUrl
       });
       
       // Return file information
@@ -123,7 +125,7 @@ router.post("/media", auth, async (req, res, next) => {
           size: req.file.size,
           mimetype: req.file.mimetype,
           mediaType: mediaType,
-          // ✅ FIXED: Use correct URL that matches static file serving
+          // ✅ FIXED: Return absolute URL
           url: fileUrl,
           uploadedAt: new Date()
         }
@@ -132,7 +134,6 @@ router.post("/media", auth, async (req, res, next) => {
       console.error("Error in upload handler:", err);
       res.status(500).json({ 
         success: false, 
-        error: 'An unexpected error occurred while processing your file' 
       });
     }
   });

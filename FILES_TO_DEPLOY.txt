@@ -1,7 +1,7 @@
 🚀 FILES TO DEPLOY TO GITHUB (Then Render Auto-Deploys)
 ==========================================================
 
-📁 BACKEND FILES (4 files total):
+📁 BACKEND FILES (5 files total):
 ---------------------------------
 
 1. backend/server.js
@@ -27,6 +27,11 @@
    Location parsing: Splits "Country, City, Area" into DB fields
    Added logging for debugging
 
+5. backend/routes/upload.js ⭐ NEW
+   ✅ Fixed: Chat image URLs return absolute paths
+   Line 108-109: Uses full URL (https://aktiv-backend.onrender.com/uploads/...)
+   Fixes broken images when accessing from mobile
+
 
 📋 DEPLOYMENT STEPS:
 -------------------
@@ -36,13 +41,13 @@ METHOD 1 - Via GitHub Web (Easiest):
 2. Navigate to backend/server.js → Click Edit
 3. Copy content from: c:\Users\AKHIL\Downloads\Aktiv-main\Aktiv-main\backend\server.js
 4. Paste and commit
-5. Repeat for: auth.js, posts.js, users.js (4 files total)
+5. Repeat for: auth.js, posts.js, users.js, upload.js (5 files total)
 6. Wait 2-5 minutes for Render to deploy
 
 METHOD 2 - Via Git Command Line:
 cd c:\Users\AKHIL\Downloads\Aktiv-main\Aktiv-main
-git add backend/server.js backend/routes/auth.js backend/routes/posts.js backend/routes/users.js
-git commit -m "Fix: CORS, profile persistence, and login data loading"
+git add backend/server.js backend/routes/auth.js backend/routes/posts.js backend/routes/users.js backend/routes/upload.js
+git commit -m "Fix: CORS, profile persistence, login data, and chat image URLs"
 git push origin main
 
 
@@ -74,6 +79,7 @@ NONE! All major issues are fixed! ✅
 ✅ Media uploads use correct URL
 ✅ Profile data persists after onboarding
 ✅ Profile data loads immediately on login (no refresh needed!)
+✅ Chat images work from mobile (absolute URLs)
 ✅ Works from ANY device/location
 ✅ No more localhost references in production
 
