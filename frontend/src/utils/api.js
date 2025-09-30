@@ -13,7 +13,6 @@ const api = axios.create({
   timeout: 30000, // 30 second timeout
   withCredentials: true, // Include credentials (cookies) in requests
   headers: {
-    'Content-Type': 'application/json',
     'Accept': 'application/json'
   }
 });
@@ -23,6 +22,13 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  
+  // Only set Content-Type for non-FormData requests
+  // Let browser set Content-Type automatically for FormData (includes boundary)
+  if (!(config.data instanceof FormData)) {
+    config.headers['Content-Type'] = 'application/json';
+  }
+  
   return config;
 });
 
